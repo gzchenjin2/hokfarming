@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>王者农场专业务农 | 极限收割排程器</title>
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --primary-light: #e8f5e9;
+            --secondary: #1976d2;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #e0e0e0;
+            --danger: #d32f2f;
+            --warning: #ed6c02;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--secondary);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        select, input[type="number"] {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 16px;
+            width: 100%;
+        }
+        .input-row input {
+            flex: 1;
+        }
+        .input-addon {
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        /* 结果面板 */
+        #resultPanel {
+            display: none;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        .alert-danger { background-color: #ffebee; color: var(--danger); border: 1px solid #ffcdd2; }
+        .alert-warning { background-color: #fff3e0; color: var(--warning); border: 1px solid #ffe0b2; }
+        .alert-success { background-color: var(--primary-light); color: var(--primary); border: 1px solid #c8e6c9; }
+        
+        .alarm-time {
+            font-size: 28px;
+            font-weight: bold;
+            display: block;
+            margin: 12px 0;
+        }
+
+        /* 数据表样式 */
+        .table-wrapper { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover {
+            background-color: #c8e6c9;
+        }
+        .row-hover:hover {
+            background-color: #f9f9f9;
+        }
+        .highlight-data {
+            font-weight: bold;
+            color: var(--danger);
+        }
+        .pmo-warning { color: #999; }
+        .pmo-star { font-weight: bold; color: var(--primary); background-color: #fff8e1; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌾 王者农场专业务农</h1>
+
+    <div class="card">
+        <h2 class="card-title">⏱️ 极限收割计算器</h2>
+        
+        <div class="form-group">
+            <label>1. 快速选择作物 (自动填充总时间)</label>
+            <select id="cropSelect" onchange="fillTotalTime()">
+                <option value="0,0">-- 手动输入 --</option>
+                <option value="1,0"> (1小时) 土豆 / 向日葵 / 黄瓜</option>
+                <option value="8,0"> (8小时) 玉米 / 青椒 / 茄子 </option>
+                <option value="16,0"> (16小时) 草莓 / 大蒜 / 香蕉 / 南瓜 / 柚子 </option>
+                <option value="32,0"> (32小时) 蓝莓 / 卷心菜 </option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>2. 植物总时间</label>
+            <div class="input-row">
+                <input type="number" id="t_h" placeholder="时" value="0" min="0" oninput="calculate()"> <span class="input-addon">时</span>
+                </div>
+        </div>
+
+        <div class="form-group">
+            <label>3. 当前剩余种植时间</label>
+            <div class="input-row">
+                <input type="number" id="r_h" placeholder="时" value="0" min="0" oninput="calculate()"> <span class="input-addon">时</span>
+                <input type="number" id="r_m" placeholder="分" value="0" min="0" max="59" oninput="calculate()"> <span class="input-addon">分</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>4. 当前剩余水量</label>
+            <div class="input-row">
+                <input type="number" id="w_h" placeholder="时" value="0" min="0" oninput="calculate()"> <span class="input-addon">时</span>
+                <input type="number" id="w_m" placeholder="分" value="0" min="0" max="59" oninput="calculate()"> <span class="input-addon">分</span>
+            </div>
+        </div>
+
+        <div id="resultPanel"></div>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">📈 高阶作物图鉴与收益数据 (点击表头可排序)</h2>
+        <p style="font-size: 14px; color: var(--text-muted);">注：基于单价与经验的综合性价比分析。排除了无意义种植，助你精准避坑。</p>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('level')">解锁等级 ↕</th>
+                        <th onclick="sortTable('name')">农作物 ↕</th>
+                        <th onclick="sortTable('time')">总时长 ↕</th>
+                        <th onclick="sortTable('unitExp')">单位经验(*10k) ↕</th>
+                        <th onclick="sortTable('unitPrice')">单位金币 ↕</th>
+                        <th onclick="sortTable('advice')">种植建议 ↕</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- 极限计算器逻辑 ---
+    function fillTotalTime() {
+        const select = document.getElementById('cropSelect').value;
+        const [h, m] = select.split(',');
+        document.getElementById('t_h').value = h;
+        
+        // 防呆：如果分钟框存在才赋值，被注释了就不执行，避免报错
+        const tmInput = document.getElementById('t_m');
+        if (tmInput) {
+            tmInput.value = m;
+        }
+        calculate();
+    }
+
+    function formatDuration(minutes) {
+        const h = Math.floor(minutes / 60);
+        const m = Math.floor(minutes % 60);
+        if (h === 0 && m === 0) return "0 分钟";
+        let res = "";
+        if (h > 0) res += h + " 小时 ";
+        if (m > 0) res += m + " 分钟";
+        return res;
+    }
+
+    function formatClockTime(date) {
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function calculate() {
+        const th = parseInt(document.getElementById('t_h').value) || 0;
+        
+        // 防呆：安全獲取分鐘數，如果被註釋則當 0 處理
+        const tmInput = document.getElementById('t_m');
+        const tm = tmInput ? (parseInt(tmInput.value) || 0) : 0;
+        
+        const rh = parseInt(document.getElementById('r_h').value) || 0;
+        const rm = parseInt(document.getElementById('r_m').value) || 0;
+        const wh = parseInt(document.getElementById('w_h').value) || 0;
+        const wm = parseInt(document.getElementById('w_m').value) || 0;
+
+        const T = th * 60 + tm;
+        const R = rh * 60 + rm;
+        const W = wh * 60 + wm;
+
+        const panel = document.getElementById('resultPanel');
+        
+        if (T === 0 || R === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        panel.style.display = 'block';
+
+        const M = T / 3;
+        const limit = W + (M / 4);
+
+        if (R > limit) {
+            panel.className = 'alert-danger';
+            panel.innerHTML = `
+                <strong>⏳ 未进入收割线</strong><br>
+                剩余时间太长，水缸扣满也无法一次带走。<br>
+                当前水缸上限为 ${formatDuration(M)}。<br>
+                👉 <strong>建议：</strong>请等待水缸流干，补满水后再重新计算。
+            `;
+            return;
+        }
+
+        let waitMins = (4 * R - M + W) / 5;
+        waitMins = Math.max(0, waitMins);
+
+        const missingWaterAfterWait = (M - W) + waitMins;
+        const threshold10 = M * 0.1;
+
+        if (missingWaterAfterWait < threshold10 && waitMins > 0) {
+            panel.className = 'alert-warning';
+            panel.innerHTML = `
+                <strong>⚠️ 卡 10% 补水门槛</strong><br>
+                完美收割时间不足以触发游戏的 10% 补水门槛限制。<br>
+                👉 <strong>建议：</strong>无须理会，让植物自然成熟即可。
+            `;
+            return;
+        }
+
+        if (waitMins === 0) {
+            panel.className = 'alert-success';
+            panel.innerHTML = `
+                <strong style="font-size: 20px;">🔥 马上淋水！直接秒熟！</strong><br>
+                不用等了，现在按下淋水键，植物瞬间成熟！
+            `;
+        } else {
+            const now = new Date();
+            const alarmTime = new Date(now.getTime() + waitMins * 60000);
+            const isTomorrow = alarmTime.getDate() !== now.getDate();
+            const dayPrefix = isTomorrow ? "明天 " : "今天 ";
+
+            panel.className = 'alert-success';
+            panel.innerHTML = `
+                <strong>✅ 完美收割时机</strong><br>
+                你需要精确等待：<strong>${formatDuration(waitMins)}</strong><br>
+                <span class="alarm-time">⏰ 闹钟设定为：${dayPrefix}${formatClockTime(alarmTime)}</span>
+                在此时间点准时按下淋水键，植物将瞬间成熟！
+            `;
+        }
+    }
+
+    // --- 动态数据表逻辑 ---
+    const cropData = [
+        { level: 1, name: '🌾 小麦', time: 30, unitExp: 333.33, unitPrice: 10.00, advice: '前期基础' },
+        { level: 2, name: '🥕 胡萝卜', time: 120, unitExp: 500.00, unitPrice: 8.33, advice: '前期基础' },
+        { level: 3, name: '🍅 番茄', time: 300, unitExp: 500.00, unitPrice: 8.33, advice: '前期基础' },
+        { level: 4, name: '🍄 蘑菇', time: 1200, unitExp: 500.00, unitPrice: 11.67, advice: '前期基础' },
+        { level: 6, name: '🥔 土豆', time: 3600, unitExp: 500.00, unitPrice: 12.78, advice: '前期基础' },
+        { level: 8, name: '🌽 玉米', time: 28800, unitExp: 529.86, unitPrice: 11.88, advice: '新手期核心作物' },
+        { level: 10, name: '🍓 草莓', time: 57600, unitExp: 544.97, unitPrice: 10.17, advice: '长线挂机' },
+        { level: 12, name: '🌻 向日葵', time: 3600, unitExp: 561.11, unitPrice: 13.33, advice: '中期过渡极佳' },
+        { level: 14, name: '🫑 青椒', time: 28800, unitExp: 575.00, unitPrice: 12.24, advice: '常规睡前种植' },
+        { level: 16, name: '🧄 大蒜', time: 57600, unitExp: 589.93, unitPrice: 10.47, advice: '长线挂机' },
+        { level: 18, name: '🍌 香蕉', time: 57600, unitExp: 0.17, unitPrice: 33.54, advice: '❌ 经验黑洞，谨慎种植' },
+        { level: 20, name: '🫐 蓝莓', time: 115200, unitExp: 619.97, unitPrice: 7.81, advice: '超长线冲级备选' },
+        { level: 22, name: '🥒 黄瓜', time: 3600, unitExp: 636.11, unitPrice: 15.28, advice: '🌟 黄金性价比之王' },
+        { level: 24, name: '🍆 茄子', time: 28800, unitExp: 650.00, unitPrice: 14.27, advice: '🌟 睡前种植首选' },
+        { level: 26, name: '🎃 南瓜', time: 57600, unitExp: 664.93, unitPrice: 12.24, advice: '长线挂机' },
+        { level: 28, name: '🍊 柚子', time: 57600, unitExp: 0.17, unitPrice: 39.15, advice: '❌ 经验黑洞，谨慎种植' },
+        { level: 30, name: '🥬 卷心菜', time: 115200, unitExp: 694.97, unitPrice: 9.11, advice: '纯挂机冲级专用' }
+    ];
+
+    let currentSort = { key: 'level', asc: true };
+
+    function formatTimeStr(seconds) {
+        if (seconds < 60) return seconds + " 秒";
+        if (seconds < 3600) return (seconds / 60) + " 分钟";
+        return (seconds / 3600) + " 小时";
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        cropData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'row-hover';
+            
+            // 样式分类逻辑
+            let rowStyle = "";
+            let adviceStyle = "";
+            if (row.advice.includes('🌟')) rowStyle = "pmo-star";
+            if (row.advice.includes('❌')) {
+                rowStyle = "pmo-warning";
+                adviceStyle = "color: var(--danger); font-weight: bold;";
+            }
+
+            tr.className = `row-hover ${rowStyle}`;
+            tr.innerHTML = `
+                <td>Lv. ${row.level}</td>
+                <td style="font-weight:bold;">${row.name}</td>
+                <td>${formatTimeStr(row.time)}</td>
+                <td class="${row.unitExp > 600 ? 'highlight-data' : ''}">${row.unitExp.toFixed(2)}</td>
+                <td class="${row.unitPrice > 14 ? 'highlight-data' : ''}">${row.unitPrice.toFixed(2)}</td>
+                <td style="${adviceStyle}">${row.advice}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function sortTable(key) {
+        if (currentSort.key === key) {
+            currentSort.asc = !currentSort.asc;
+        } else {
+            currentSort.key = key;
+            currentSort.asc = false; 
+            if (key === 'level' || key === 'time') currentSort.asc = true; 
+        }
+
+        cropData.sort((a, b) => {
+            let valA = a[key];
+            let valB = b[key];
+            if (valA < valB) return currentSort.asc ? -1 : 1;
+            if (valA > valB) return currentSort.asc ? 1 : -1;
+            return 0;
+        });
+        renderTable();
+    }
+
+    // 页面加载时渲染一次表格
+    window.onload = () => { renderTable(); };
+</script>
+
+</body>
+</html>
