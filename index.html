@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>王者农场专业务农 | 极限收割排程器</title>
+    <title>王者农场专业务农 | 极限收割计划</title>
     <style>
         :root {
             --primary: #2e7d32;
@@ -28,7 +28,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 950px;
             margin: 0 auto;
         }
 
@@ -138,6 +138,7 @@
         }
         .pmo-warning { color: #999; }
         .pmo-star { font-weight: bold; color: var(--primary); background-color: #fff8e1; }
+        .pmo-crown { font-weight: bold; color: #d84315; background-color: #ffcc80; } /* 为顶级版本答案增加的特殊高亮 */
     </style>
 </head>
 <body>
@@ -152,10 +153,10 @@
             <label>1. 快速选择作物 (自动填充总时间)</label>
             <select id="cropSelect" onchange="fillTotalTime()">
                 <option value="0,0">-- 手动输入 --</option>
-                <option value="1,0"> (1小时) 土豆 / 向日葵 / 黄瓜</option>
-                <option value="8,0"> (8小时) 玉米 / 青椒 / 茄子 </option>
-                <option value="16,0"> (16小时) 草莓 / 大蒜 / 香蕉 / 南瓜 / 柚子 </option>
-                <option value="32,0"> (32小时) 蓝莓 / 卷心菜 </option>
+                <option value="1,0"> (1小时) 土豆 / 向日葵 / 黄瓜 / 白萝卜 / 洋葱</option>
+                <option value="8,0"> (8小时) 玉米 / 青椒 / 茄子 / 葡萄 / 花菜 </option>
+                <option value="16,0"> (16小时) 草莓 / 大蒜 / 香蕉 / 南瓜 / 柚子 / 生菜 / 西瓜 / 花生</option>
+                <option value="32,0"> (32小时) 蓝莓 / 卷心菜 / 辣椒 </option>
             </select>
         </div>
 
@@ -163,7 +164,7 @@
             <label>2. 植物总时间</label>
             <div class="input-row">
                 <input type="number" id="t_h" placeholder="时" value="0" min="0" oninput="calculate()"> <span class="input-addon">时</span>
-                </div>
+            </div>
         </div>
 
         <div class="form-group">
@@ -187,7 +188,7 @@
 
     <div class="card">
         <h2 class="card-title">📈 高阶作物图鉴与收益数据 (点击表头可排序)</h2>
-        <p style="font-size: 14px; color: var(--text-muted);">注：基于单价与经验的综合性价比分析。排除了无意义种植，助你精准避坑。</p>
+        <p style="font-size: 14px; color: var(--text-muted);">注：基于单价与经验的综合性价比分析。已收录至最新 46 级数据，排除了无意义种植，助你精准避坑。</p>
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -215,7 +216,6 @@
         const [h, m] = select.split(',');
         document.getElementById('t_h').value = h;
         
-        // 防呆：如果分钟框存在才赋值，被注释了就不执行，避免报错
         const tmInput = document.getElementById('t_m');
         if (tmInput) {
             tmInput.value = m;
@@ -242,7 +242,6 @@
     function calculate() {
         const th = parseInt(document.getElementById('t_h').value) || 0;
         
-        // 防呆：安全獲取分鐘數，如果被註釋則當 0 處理
         const tmInput = document.getElementById('t_m');
         const tm = tmInput ? (parseInt(tmInput.value) || 0) : 0;
         
@@ -316,7 +315,7 @@
         }
     }
 
-    // --- 动态数据表逻辑 ---
+    // --- 动态数据表逻辑 (更新至 46 级) ---
     const cropData = [
         { level: 1, name: '🌾 小麦', time: 30, unitExp: 333.33, unitPrice: 10.00, advice: '前期基础' },
         { level: 2, name: '🥕 胡萝卜', time: 120, unitExp: 500.00, unitPrice: 8.33, advice: '前期基础' },
@@ -325,16 +324,24 @@
         { level: 6, name: '🥔 土豆', time: 3600, unitExp: 500.00, unitPrice: 12.78, advice: '前期基础' },
         { level: 8, name: '🌽 玉米', time: 28800, unitExp: 529.86, unitPrice: 11.88, advice: '新手期核心作物' },
         { level: 10, name: '🍓 草莓', time: 57600, unitExp: 544.97, unitPrice: 10.17, advice: '长线挂机' },
-        { level: 12, name: '🌻 向日葵', time: 3600, unitExp: 561.11, unitPrice: 13.33, advice: '中期过渡极佳' },
+        { level: 12, name: '🌻 向日葵', time: 3600, unitExp: 561.11, unitPrice: 13.33, advice: '中期过渡' },
         { level: 14, name: '🫑 青椒', time: 28800, unitExp: 575.00, unitPrice: 12.24, advice: '常规睡前种植' },
         { level: 16, name: '🧄 大蒜', time: 57600, unitExp: 589.93, unitPrice: 10.47, advice: '长线挂机' },
-        { level: 18, name: '🍌 香蕉', time: 57600, unitExp: 0.17, unitPrice: 33.54, advice: '❌ 经验黑洞，谨慎种植' },
+        { level: 18, name: '🍌 香蕉', time: 57600, unitExp: 0.17, unitPrice: 33.54, advice: '💰 经验黑洞，谨慎种植' },
         { level: 20, name: '🫐 蓝莓', time: 115200, unitExp: 619.97, unitPrice: 7.81, advice: '超长线冲级备选' },
-        { level: 22, name: '🥒 黄瓜', time: 3600, unitExp: 636.11, unitPrice: 15.28, advice: '🌟 黄金性价比之王' },
-        { level: 24, name: '🍆 茄子', time: 28800, unitExp: 650.00, unitPrice: 14.27, advice: '🌟 睡前种植首选' },
+        { level: 22, name: '🥒 黄瓜', time: 3600, unitExp: 636.11, unitPrice: 15.28, advice: '🌟 黄金性价比' },
+        { level: 24, name: '🍆 茄子', time: 28800, unitExp: 650.00, unitPrice: 14.27, advice: '🌟 睡前优选' },
         { level: 26, name: '🎃 南瓜', time: 57600, unitExp: 664.93, unitPrice: 12.24, advice: '长线挂机' },
-        { level: 28, name: '🍊 柚子', time: 57600, unitExp: 0.17, unitPrice: 39.15, advice: '❌ 经验黑洞，谨慎种植' },
-        { level: 30, name: '🥬 卷心菜', time: 115200, unitExp: 694.97, unitPrice: 9.11, advice: '纯挂机冲级专用' }
+        { level: 28, name: '🍊 柚子', time: 57600, unitExp: 0.17, unitPrice: 39.15, advice: '💰 经验黑洞，谨慎种植' },
+        { level: 30, name: '🥬 卷心菜', time: 115200, unitExp: 694.97, unitPrice: 9.11, advice: '纯挂机冲级' },
+        { level: 32, name: '萝卜', time: 3600, unitExp: 711.11, unitPrice: 18.61, advice: '🌟 新进阶性价比单品' },
+        { level: 34, name: '🍇 葡萄', time: 28800, unitExp: 725.00, unitPrice: 17.29, advice: '🌟 进阶睡前优选' },
+        { level: 36, name: '生菜', time: 57600, unitExp: 739.93, unitPrice: 14.86, advice: '长线收益稳健' },
+        { level: 38, name: '🍉 西瓜', time: 57600, unitExp: 0.17, unitPrice: 47.57, advice: '💰 经验黑洞，谨慎种植' },
+        { level: 40, name: '🌶️ 辣椒', time: 115200, unitExp: 769.97, unitPrice: 11.08, advice: '纯挂机终极冲级' },
+        { level: 42, name: '🧅 洋葱', time: 3600, unitExp: 786.11, unitPrice: 21.67, advice: '👑 版本最强1小时单品' },
+        { level: 44, name: '🥦 花菜', time: 28800, unitExp: 800.00, unitPrice: 20.42, advice: '👑 睡前最强真神' },
+        { level: 46, name: '🥜 花生', time: 57600, unitExp: 814.93, unitPrice: 17.45, advice: '🌟 长线挂机天花板' }
     ];
 
     let currentSort = { key: 'level', asc: true };
@@ -356,7 +363,8 @@
             let rowStyle = "";
             let adviceStyle = "";
             if (row.advice.includes('🌟')) rowStyle = "pmo-star";
-            if (row.advice.includes('❌')) {
+            if (row.advice.includes('👑')) rowStyle = "pmo-crown"; // 版本真神特殊高亮
+            if (row.advice.includes('💰')) {
                 rowStyle = "pmo-warning";
                 adviceStyle = "color: var(--danger); font-weight: bold;";
             }
@@ -366,8 +374,8 @@
                 <td>Lv. ${row.level}</td>
                 <td style="font-weight:bold;">${row.name}</td>
                 <td>${formatTimeStr(row.time)}</td>
-                <td class="${row.unitExp > 600 ? 'highlight-data' : ''}">${row.unitExp.toFixed(2)}</td>
-                <td class="${row.unitPrice > 14 ? 'highlight-data' : ''}">${row.unitPrice.toFixed(2)}</td>
+                <td class="${row.unitExp > 700 ? 'highlight-data' : ''}">${row.unitExp.toFixed(2)}</td>
+                <td class="${row.unitPrice > 16 ? 'highlight-data' : ''}">${row.unitPrice.toFixed(2)}</td>
                 <td style="${adviceStyle}">${row.advice}</td>
             `;
             tbody.appendChild(tr);
