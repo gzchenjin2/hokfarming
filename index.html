@@ -500,10 +500,8 @@
 
         function calculate() {
             const th = parseInt(document.getElementById('t_h').value) || 0;
-
             const tmInput = document.getElementById('t_m');
             const tm = tmInput ? (parseInt(tmInput.value) || 0) : 0;
-
             const rh = parseInt(document.getElementById('r_h').value) || 0;
             const rm = parseInt(document.getElementById('r_m').value) || 0;
             const wh = parseInt(document.getElementById('w_h').value) || 0;
@@ -522,41 +520,95 @@
 
             panel.style.display = 'block';
 
-            const M = T / 3;
-            const limit = W + (M / 4);
+            // ================= 风控拦截 1：剩余时间异常 =================
+            if (R > T) {
+                panel.className = 'alert-danger';
+                panel.innerHTML = `
+                <strong style="font-size: 18px;">❌ 输入数据异常</strong><br>
+                剩余时间（<strong>${formatDuration(R)}</strong>）不可能大于植物总时间（<strong>${formatDuration(T)}</strong>）。<br>
+                👉 <strong>请核实输入：</strong>您可能填反了或者看错行了。
+                `;
+                return;
+            }
 
-            // ================= 优化：未来排期推演引擎 =================
-            if (R > limit) {
-                let currR = R;
-                let currW = W;
-                let passed = 0;
-                let actions = [];
+            const M = T / 3; // 水缸上限
 
-                // 1. 推算当前这缸水什么时候烧干
+            // ================= 风控拦截 2：剩余水量异常 =================
+            if (W > M) {
+                panel.className = 'alert-danger';
+                panel.innerHTML = `
+                <strong style="font-size: 18px;">❌ 输入数据异常</strong><br>
+                当前水量（<strong>${formatDuration(W)}</strong>）超过了该植物的水缸物理上限（<strong>${formatDuration(M)}</strong>）。<br>
+                👉 <strong>请核实输入：</strong>水滴上的时间绝不可能超过 ${formatDuration(M)}。
+                `;
+                return;
+            }
+
+            // ================= 终极物理沙盘推演引擎 =================
+            const K = M / 4; // 游戏的底层绝对斩杀线
+            
+            let currR = R;
+            let currW = W;
+            let passed = 0; // 现实流逝的时间
+            let actions = [];
+
+            // 1. 如果开局就已经进入斩杀线
+            if (currR <= K) {
+                panel.className = 'alert-success';
+                panel.innerHTML = `
+                <strong style="font-size: 20px;">🔥 马上淋水！直接秒熟！</strong><br>
+                不用等了，现在按下淋水键，植物瞬间成熟！
+                `;
+                return;
+            }
+
+            // 2. 状态机循环：一步步推演未来的现实时间
+            while (currR > K) {
                 if (currW > 0) {
-                    passed += currW;
-                    currR -= currW;
-                    actions.push({ type: 'water', offset: passed, title: '水缸干涸，需补满水缸 💧' });
+                    // 当前这缸水能提供的最大游戏进度 (1.25倍速)
+                    let prog = currW * 1.25; 
+                    
+                    if (currR - prog <= K) {
+                        // 场景 A：在水干之前，进度就会触碰斩杀线！
+                        let timeNeeded = (currR - K) / 1.25; // 算出精准的现实等待时间
+                        passed += timeNeeded;
+                        currR = K;
+                        currW -= timeNeeded;
+                        actions.push({ type: 'kill', offset: Math.round(passed), title: '🔥 终极秒熟！马上淋水收割！' });
+                        break; // 结束推演
+                    } else {
+                        // 场景 B：这缸水烧干了还没到斩杀线
+                        passed += currW;
+                        currR -= prog;
+                        actions.push({ type: 'water', offset: Math.round(passed), title: '💧 水缸干涸，需补满水缸' });
+                        currW = M; // 模拟玩家加满水，继续下一轮
+                    }
                 } else {
-                    // 如果当前水就是 0，立刻要求补水
-                    actions.push({ type: 'water', offset: 0, title: '水缸已空，请立刻补水！ 💧' });
+                    // 场景 C：一上来水缸就是空的 (即 W=0 的情况)
+                    actions.push({ type: 'water', offset: Math.round(passed), title: '💧 水缸已空，请立刻补水！' });
+                    currW = M; // 补水不消耗现实时间，进入下一轮循环
                 }
-                
-                currW = M; // 模拟补满水
+            }
 
-                // 2. 如果补满水后，剩下的时间依旧太长，说明中间还要经历完整的烧水周期
-                while (currR - currW > M / 4) {
-                    passed += M;
-                    currR -= M;
-                    actions.push({ type: 'water', offset: passed, title: '水缸干涸，需补满水缸 💧' });
-                }
+            // ================= UI 渲染 =================
+            // 如果推演结果只有一步，且是秒熟（说明当前水足够一次带走）
+            if (actions.length === 1 && actions[0].type === 'kill') {
+                let waitMins = actions[0].offset;
+                const now = new Date();
+                const alarmTime = new Date(now.getTime() + waitMins * 60000);
+                const dayPrefix = alarmTime.getDate() !== now.getDate() ? "明天 " : "今天 ";
 
-                // 3. 终于跨入终极斩杀周期！计算最后的那段等待时间
-                let finalWait = Math.max(0, (4 * currR - M + currW) / 5);
-                passed += finalWait;
-                actions.push({ type: 'kill', offset: passed, title: '🔥 终极秒熟！马上淋水收割！' });
-
-                // 4. 渲染预测排期 UI
+                panel.className = 'alert-success';
+                panel.innerHTML = `
+                <strong>✅ 完美收割时机</strong><br>
+                你需要精确等待：<strong>${formatDuration(waitMins)}</strong><br>
+                <span class="alarm-time">⏰ 闹钟设定为：${dayPrefix}${formatClockTime(alarmTime)}</span>
+                在此时间点准时操作，植物将瞬间成熟！
+                `;
+                panel.innerHTML += `<button class="alarm-btn" style="margin-top: 10px;" onclick="createAlarm('农场秒熟收割', ${alarmTime.getTime()})">⏰ 为本次操作设日历</button>`;
+            } 
+            // 结果有多步，说明中途需要补水
+            else {
                 const now = new Date();
                 let html = `<strong style="font-size: 16px;">⏳ 尚未进入斩杀线，后续排期如下：</strong><br>`;
                 html += `<ul style="margin: 10px 0; padding-left: 20px; font-size: 14px; color: var(--text-main);">`;
@@ -575,54 +627,17 @@
                 });
                 html += `</ul>`;
 
-                // 提取下一个最近的动作，生成一键闹钟
                 const nextAct = actions[0];
                 const nextTime = now.getTime() + nextAct.offset * 60000;
-                html += `<button class="alarm-btn" style="margin-top: 5px;" onclick="createAlarm('农场补水', ${nextTime})">⏰ 为下一次操作设日历</button>`;
+                const alarmTitle = nextAct.type === 'kill' ? '农场秒熟收割' : '农场加水提醒';
+                html += `<button class="alarm-btn" style="margin-top: 5px;" onclick="createAlarm('${alarmTitle}', ${nextTime})">⏰ 为下一次操作设日历</button>`;
 
                 panel.className = 'alert-warning';
                 panel.innerHTML = html;
-                return;
-            }
-
-            let waitMins = (4 * R - M + W) / 5;
-            waitMins = Math.max(0, waitMins);
-
-            const missingWaterAfterWait = (M - W) + waitMins;
-            const threshold10 = M * 0.1;
-
-            if (missingWaterAfterWait < threshold10 && waitMins > 0) {
-                panel.className = 'alert-warning';
-                panel.innerHTML = `
-                <strong>⚠️ 卡 10% 补水门槛</strong><br>
-                完美收割时间不足以触发游戏的 10% 补水门槛限制。<br>
-                👉 <strong>建议：</strong>无须理会，让植物自然成熟即可。
-            `;
-                return;
-            }
-
-            if (waitMins === 0) {
-                panel.className = 'alert-success';
-                panel.innerHTML = `
-                <strong style="font-size: 20px;">🔥 马上淋水！直接秒熟！</strong><br>
-                不用等了，现在按下淋水键，植物瞬间成熟！
-            `;
-            } else {
-                const now = new Date();
-                const alarmTime = new Date(now.getTime() + waitMins * 60000);
-                const isTomorrow = alarmTime.getDate() !== now.getDate();
-                const dayPrefix = isTomorrow ? "明天 " : "今天 ";
-
-                panel.className = 'alert-success';
-                panel.innerHTML = `
-                <strong>✅ 完美收割时机</strong><br>
-                你需要精确等待：<strong>${formatDuration(waitMins)}</strong><br>
-                <span class="alarm-time">⏰ 闹钟设定为：${dayPrefix}${formatClockTime(alarmTime)}</span>
-                在此时间点准时按下淋水键，植物将瞬间成熟！
-            `;
             }
         }
 
+        
 
         // 初始化当前时间
         window.addEventListener('DOMContentLoaded', (event) => {
