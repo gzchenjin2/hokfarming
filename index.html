@@ -394,7 +394,7 @@
                         <div style="font-size: 12px; font-weight: bold; color: var(--text-main); margin-bottom: 4px;">种下
                         </div>
                         <div id="time1" style="font-size: 14px; font-weight: bold; color: var(--primary);">--:--</div>
-                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">立刻淋水</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">立刻浇水</div>
                     </div>
                     <div class="timeline-card" style="border-top: 4px solid var(--secondary);">
                         <div style="font-size: 22px; margin-bottom: 4px;">💧</div>
@@ -531,14 +531,14 @@
                 return;
             }
 
-            const M = T / 3; // 水缸上限
+            const M = T / 3; // 储水上限
 
             // ================= 风控拦截 2：剩余水量异常 =================
             if (W > M) {
                 panel.className = 'alert-danger';
                 panel.innerHTML = `
                 <strong style="font-size: 18px;">❌ 输入数据异常</strong><br>
-                当前水量（<strong>${formatDuration(W)}</strong>）超过了该植物的水缸物理上限（<strong>${formatDuration(M)}</strong>）。<br>
+                当前水量（<strong>${formatDuration(W)}</strong>）超过了该植物的储水物理上限（<strong>${formatDuration(M)}</strong>）。<br>
                 👉 <strong>请核实输入：</strong>水滴上的时间绝不可能超过 ${formatDuration(M)}。
                 `;
                 return;
@@ -556,8 +556,8 @@
             if (currR <= K) {
                 panel.className = 'alert-success';
                 panel.innerHTML = `
-                <strong style="font-size: 20px;">🔥 马上淋水！直接秒熟！</strong><br>
-                不用等了，现在按下淋水键，植物瞬间成熟！
+                <strong style="font-size: 20px;">🔥 马上浇水！直接秒熟！</strong><br>
+                不用等了，现在按下浇水键，植物瞬间成熟！
                 `;
                 return;
             }
@@ -574,18 +574,18 @@
                         passed += timeNeeded;
                         currR = K;
                         currW -= timeNeeded;
-                        actions.push({ type: 'kill', offset: Math.round(passed), title: '🔥 终极秒熟！马上淋水收割！' });
+                        actions.push({ type: 'kill', offset: Math.round(passed), title: '🔥 终极秒熟！马上浇水收割！' });
                         break; // 结束推演
                     } else {
                         // 场景 B：这缸水烧干了还没到斩杀线
                         passed += currW;
                         currR -= prog;
-                        actions.push({ type: 'water', offset: Math.round(passed), title: '💧 水缸干涸，需补满水缸' });
+                        actions.push({ type: 'water', offset: Math.round(passed), title: '💧 储水干涸，需补满水' });
                         currW = M; // 模拟玩家加满水，继续下一轮
                     }
                 } else {
-                    // 场景 C：一上来水缸就是空的 (即 W=0 的情况)
-                    actions.push({ type: 'water', offset: Math.round(passed), title: '💧 水缸已空，请立刻补水！' });
+                    // 场景 C：一上来储水就是空的 (即 W=0 的情况)
+                    actions.push({ type: 'water', offset: Math.round(passed), title: '💧 尚未浇水，请立刻补水！' });
                     currW = M; // 补水不消耗现实时间，进入下一轮循环
                 }
             }
@@ -676,7 +676,7 @@
             const start = new Date(timestamp);
             const end = new Date(timestamp + 5 * 60000); // 持续 5 分钟
             const eventTitle = `🌾 ${title}`;
-            const details = '机要通提醒：水缸已干 / 极限秒熟，马上淋水！';
+            const details = '提醒：储水已干 / 极限秒熟，马上浇水！';
 
             const ua = navigator.userAgent.toLowerCase();
             const isWeChat = ua.includes('micromessenger');
