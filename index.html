@@ -318,6 +318,20 @@
           font-size: 18px !important;
         }
       }
+
+
+      /* ================= 数据中心 Tab 选项卡样式 ================= */
+      .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 15px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab-btn { padding: 10px 16px; font-size: 14px; font-weight: bold; color: var(--text-muted); background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+      .tab-btn:hover { color: var(--primary); }
+      .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+      .tab-content { display: none; animation: fadeIn 0.3s ease; }
+      .tab-content.active { display: block; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+
+
     </style>
   </head>
 
@@ -706,28 +720,90 @@
 
 
       <div class="card">
-        <h2 class="card-title">📈 高阶作物图鉴与收益数据 (点击表头可排序)</h2>
-        <p style="font-size: 14px; color: var(--text-muted)">
-          注：基于单价与经验的综合性价比分析。已收录至最新 46
-          级数据，排除了无意义种植，助你精准避坑。
-        </p>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th onclick="sortTable('level')">解锁等级 ↕</th>
-                <th onclick="sortTable('name')">农作物 ↕</th>
-                <th onclick="sortTable('time')">总时长 ↕</th>
-                <th onclick="sortTable('unitExp')">单位经验(*10k) ↕</th>
-                <th onclick="sortTable('unitPrice')">单位金币 ↕</th>
-                <th onclick="sortTable('advice')">种植建议 ↕</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-          </table>
+        <h2 class="card-title" style="border:none; margin-bottom: 5px;">📊 农场数据中心</h2>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('crops')">🌾 作物信息</button>
+            <button class="tab-btn" onclick="switchTab('farm')">🏡 农场等级</button>
+            <button class="tab-btn" onclick="switchTab('stall')">🛒 小摊等级</button>
+            <button class="tab-btn" onclick="switchTab('field')">🚜 农田开垦</button>
+        </div>
+
+        <div id="tab-crops" class="tab-content active">
+            <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th onclick="sortTable('level')">解锁等级 ↕</th>
+                    <th onclick="sortTable('name')">农作物 ↕</th>
+                    <th onclick="sortTable('buy')">购买价 ↕</th>
+                    <th onclick="sortTable('sell')">出售总价 ↕</th>
+                    <th onclick="sortTable('time')">总时长 ↕</th>
+                    <th onclick="sortTable('expH')">经验/h ↕</th>
+                    <th onclick="sortTable('coinH')">金币/h ↕</th>
+                    <th onclick="sortTable('advice')">种植建议 ↕</th>
+                </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <div id="tab-farm" class="tab-content">
+            <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>等级</th>
+                    <th>费用</th>
+                    <th>需求经验</th>
+                    <th>作物</th>
+                    <th>变异</th>
+                    <th>小摊</th>
+                    <th>开垦农田</th>
+                    <th>功能</th>
+                    <th>家具</th>
+                </tr>
+                </thead>
+                <tbody id="farmTableBody"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <div id="tab-stall" class="tab-content">
+            <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>等级</th>
+                    <th>升级费用</th>
+                    <th>奖励经验</th>
+                    <th>提升售价</th>
+                </tr>
+                </thead>
+                <tbody id="stallTableBody"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <div id="tab-field" class="tab-content">
+            <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>农田</th>
+                    <th>开垦费用</th>
+                    <th>获得农场经验</th>
+                </tr>
+                </thead>
+                <tbody id="fieldTableBody"></tbody>
+            </table>
+            </div>
         </div>
       </div>
     </div>
+
+    
     <div
       style="
         text-align: center;
@@ -830,7 +906,7 @@
           panel.className = "alert-danger";
           panel.innerHTML = `
                 <strong style="font-size: 18px;">❌ 输入数据异常</strong><br>
-                当前水量（<strong>${formatDuration(W)}</strong>）超过了该植物的水缸物理上限（<strong>${formatDuration(M)}</strong>）。<br>
+                当前水量（<strong>${formatDuration(W)}</strong>）超过了该植物的储水上限（<strong>${formatDuration(M)}</strong>）。<br>
                 👉 <strong>请核实输入：</strong>水滴上的时间绝不可能超过 ${formatDuration(M)}。
                 `;
           return;
@@ -1076,210 +1152,169 @@
           `<button class="alarm-btn alarm-btn-danger" onclick="createAlarm('🔥 终极秒熟收割', ${t4.getTime()})">⏰ 设日历提醒</button>`;
       }
 
-      // --- 动态数据表逻辑 (更新至 46 级) ---
+
+      // --- 动态数据表逻辑 ---
+      
+      // 1. 作物信息 (补充买卖价，按时薪核算)
       const cropData = [
-        {
-          level: 1,
-          name: "🌾 小麦",
-          time: 30,
-          unitExp: 333.33,
-          unitPrice: 10.0,
-          advice: "前期基础",
-        },
-        {
-          level: 2,
-          name: "🥕 胡萝卜",
-          time: 120,
-          unitExp: 500.0,
-          unitPrice: 8.33,
-          advice: "前期基础",
-        },
-        {
-          level: 3,
-          name: "🍅 番茄",
-          time: 300,
-          unitExp: 500.0,
-          unitPrice: 8.33,
-          advice: "前期基础",
-        },
-        {
-          level: 5,
-          name: "🍄 蘑菇",
-          time: 1200,
-          unitExp: 500.0,
-          unitPrice: 11.67,
-          advice: "前期基础",
-        },
-        {
-          level: 6,
-          name: "🥔 土豆",
-          time: 3600,
-          unitExp: 500.0,
-          unitPrice: 12.78,
-          advice: "前期基础",
-        },
-        {
-          level: 8,
-          name: "🌽 玉米",
-          time: 28800,
-          unitExp: 529.86,
-          unitPrice: 11.88,
-          advice: "新手期核心作物",
-        },
-        {
-          level: 10,
-          name: "🍓 草莓",
-          time: 57600,
-          unitExp: 544.97,
-          unitPrice: 10.17,
-          advice: "长线挂机",
-        },
-        {
-          level: 12,
-          name: "🌻 向日葵",
-          time: 3600,
-          unitExp: 561.11,
-          unitPrice: 13.33,
-          advice: "中期过渡",
-        },
-        {
-          level: 14,
-          name: "🫑 青椒",
-          time: 28800,
-          unitExp: 575.0,
-          unitPrice: 12.24,
-          advice: "常规睡前种植",
-        },
-        {
-          level: 16,
-          name: "🧄 大蒜",
-          time: 57600,
-          unitExp: 589.93,
-          unitPrice: 10.47,
-          advice: "长线挂机",
-        },
-        {
-          level: 18,
-          name: "🍌 香蕉",
-          time: 57600,
-          unitExp: 0.17,
-          unitPrice: 33.54,
-          advice: "💰 经验黑洞，谨慎种植",
-        },
-        {
-          level: 20,
-          name: "🫐 蓝莓",
-          time: 115200,
-          unitExp: 619.97,
-          unitPrice: 7.81,
-          advice: "超长线冲级备选",
-        },
-        {
-          level: 22,
-          name: "🥒 黄瓜",
-          time: 3600,
-          unitExp: 636.11,
-          unitPrice: 15.28,
-          advice: "🌟 黄金性价比",
-        },
-        {
-          level: 24,
-          name: "🍆 茄子",
-          time: 28800,
-          unitExp: 650.0,
-          unitPrice: 14.27,
-          advice: "🌟 睡前优选",
-        },
-        {
-          level: 26,
-          name: "🎃 南瓜",
-          time: 57600,
-          unitExp: 664.93,
-          unitPrice: 12.24,
-          advice: "长线挂机",
-        },
-        {
-          level: 28,
-          name: "🍊 柚子",
-          time: 57600,
-          unitExp: 0.17,
-          unitPrice: 39.15,
-          advice: "💰 经验黑洞，谨慎种植",
-        },
-        {
-          level: 30,
-          name: "🥬 卷心菜",
-          time: 115200,
-          unitExp: 694.97,
-          unitPrice: 9.11,
-          advice: "纯挂机冲级",
-        },
-        {
-          level: 32,
-          name: "🌱 萝卜",
-          time: 3600,
-          unitExp: 711.11,
-          unitPrice: 18.61,
-          advice: "🌟 新进阶性价比单品",
-        },
-        {
-          level: 34,
-          name: "🍇 葡萄",
-          time: 28800,
-          unitExp: 725.0,
-          unitPrice: 17.29,
-          advice: "🌟 进阶睡前优选",
-        },
-        {
-          level: 36,
-          name: "🥗 生菜",
-          time: 57600,
-          unitExp: 739.93,
-          unitPrice: 14.86,
-          advice: "长线收益稳健",
-        },
-        {
-          level: 38,
-          name: "🍉 西瓜",
-          time: 57600,
-          unitExp: 0.17,
-          unitPrice: 47.57,
-          advice: "💰 经验黑洞，谨慎种植",
-        },
-        {
-          level: 40,
-          name: "🌶️ 辣椒",
-          time: 115200,
-          unitExp: 769.97,
-          unitPrice: 11.08,
-          advice: "纯挂机终极冲级",
-        },
-        {
-          level: 42,
-          name: "🧅 洋葱",
-          time: 3600,
-          unitExp: 786.11,
-          unitPrice: 21.67,
-          advice: "👑 版本最强1小时单品",
-        },
-        {
-          level: 44,
-          name: "🥦 花菜",
-          time: 28800,
-          unitExp: 800.0,
-          unitPrice: 20.42,
-          advice: "👑 睡前最强真神",
-        },
-        {
-          level: 46,
-          name: "🥜 花生",
-          time: 57600,
-          unitExp: 814.93,
-          unitPrice: 17.45,
-          advice: "🌟 长线挂机天花板",
-        },
+        { level: 1, name: "🌾 小麦", buy: 0, sell: 3, time: 30, expH: 120.0, coinH: 360.0, advice: "前期基础" },
+        { level: 2, name: "🥕 胡萝卜", buy: 1, sell: 10, time: 120, expH: 180.0, coinH: 300.0, advice: "前期基础" },
+        { level: 3, name: "🍅 番茄", buy: 2, sell: 25, time: 300, expH: 180.0, coinH: 300.0, advice: "前期基础" },
+        { level: 5, name: "🍄 蘑菇", buy: 11, sell: 140, time: 1200, expH: 180.0, coinH: 420.0, advice: "前期基础" },
+        { level: 6, name: "🥔 土豆", buy: 35, sell: 460, time: 3600, expH: 180.0, coinH: 460.0, advice: "前期基础" },
+        { level: 8, name: "🌽 玉米", buy: 266, sell: 3420, time: 28800, expH: 190.8, coinH: 427.5, advice: "新手期核心" },
+        { level: 10, name: "🍓 草莓", buy: 457, sell: 5860, time: 57600, expH: 196.2, coinH: 366.3, advice: "长线挂机" },
+        { level: 12, name: "🌻 向日葵", buy: 36, sell: 480, time: 3600, expH: 202.0, coinH: 480.0, advice: "中期过渡" },
+        { level: 14, name: "🫑 青椒", buy: 274, sell: 3525, time: 28800, expH: 207.0, coinH: 440.6, advice: "常规睡前种植" },
+        { level: 16, name: "🧄 大蒜", buy: 453, sell: 6030, time: 57600, expH: 212.4, coinH: 376.9, advice: "长线挂机" },
+        { level: 18, name: "🍌 香蕉", buy: 1812, sell: 19320, time: 57600, expH: 0.1, coinH: 1207.5, advice: "💰 经验黑洞，谨慎种植" },
+        { level: 20, name: "🫐 蓝莓", buy: 675, sell: 9000, time: 115200, expH: 223.2, coinH: 281.3, advice: "超长线冲级" },
+        { level: 22, name: "🥒 黄瓜", buy: 41, sell: 550, time: 3600, expH: 229.0, coinH: 550.0, advice: "🌟 黄金性价比" },
+        { level: 24, name: "🍆 茄子", buy: 308, sell: 4110, time: 28800, expH: 234.0, coinH: 513.8, advice: "🌟 睡前优选" },
+        { level: 26, name: "🎃 南瓜", buy: 507, sell: 7050, time: 57600, expH: 239.4, coinH: 440.6, advice: "长线挂机" },
+        { level: 28, name: "🍊 柚子", buy: 2030, sell: 22550, time: 57600, expH: 0.1, coinH: 1409.4, advice: "💰 经验黑洞，谨慎种植" },
+        { level: 30, name: "🥬 卷心菜", buy: 756, sell: 10500, time: 115200, expH: 250.2, coinH: 328.1, advice: "纯挂机冲级" },
+        { level: 32, name: "🌱 萝卜", buy: 48, sell: 670, time: 3600, expH: 256.0, coinH: 670.0, advice: "🌟 新进阶性价比" },
+        { level: 34, name: "🍇 葡萄", buy: 359, sell: 4980, time: 28800, expH: 261.0, coinH: 622.5, advice: "🌟 进阶睡前优选" },
+        { level: 36, name: "🥗 生菜", buy: 590, sell: 8560, time: 57600, expH: 266.4, coinH: 535.0, advice: "长线收益稳健" },
+        { level: 38, name: "🍉 西瓜", buy: 2362, sell: 27400, time: 57600, expH: 0.1, coinH: 1712.5, advice: "💰 经验黑洞，谨慎种植" },
+        { level: 40, name: "🌶️ 辣椒", buy: 879, sell: 12760, time: 115200, expH: 277.2, coinH: 398.8, advice: "纯挂机终极冲级" },
+        { level: 42, name: "🧅 洋葱", buy: 54, sell: 780, time: 3600, expH: 283.0, coinH: 780.0, advice: "👑 版本最强1小时单品" },
+        { level: 44, name: "🥦 花菜", buy: 405, sell: 5880, time: 28800, expH: 288.0, coinH: 735.0, advice: "👑 睡前最强真神" },
+        { level: 46, name: "🥜 花生", buy: 664, sell: 10050, time: 57600, expH: 293.4, coinH: 628.1, advice: "🌟 长线挂机天花板" },
+        { level: 48, name: "🍈 木瓜", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 50, name: "🌾 荞麦", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 51, name: "🥬 莴笋", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 52, name: "🍒 红枣", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 53, name: "☁️ 棉花", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 54, name: "🍊 橘子", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+        { level: 55, name: "🍍 菠萝", buy: "-", sell: "-", time: 0, expH: 0, coinH: 0, advice: "暂无数据" },
+      
       ];
 
+      // 2. 农场升级表 (列数完全独立)
+      const farmData = [
+          { level: 2, cost: "12", exp: "5", crop: "胡萝卜", mutation: "桃霞", stall: "-", field: "数量3->4", func: "-", furniture: "-" },
+          { level: 3, cost: "50", exp: "36", crop: "番茄", mutation: "幽蓝", stall: "-", field: "-", func: "-", furniture: "-" },
+          { level: 4, cost: "100", exp: "60", crop: "-", mutation: "-", stall: "-", field: "数量4->5", func: "一键浇水", furniture: "-" },
+          { level: 5, cost: "150", exp: "100", crop: "蘑菇", mutation: "-", stall: "农场小摊2", field: "-", func: "-", furniture: "-" },
+          { level: 6, cost: "480", exp: "360", crop: "土豆", mutation: "铸铁", stall: "-", field: "数量5->6", func: "-", furniture: "-" },
+          { level: 7, cost: "2100", exp: "720", crop: "-", mutation: "-", stall: "上限2->3", field: "数量6->7", func: "-", furniture: "-" },
+          { level: 8, cost: "5000", exp: "1100", crop: "玉米", mutation: "-", stall: "-", field: "-", func: "一键收获", furniture: "-" },
+          { level: 9, cost: "1.3万", exp: "2200", crop: "-", mutation: "-", stall: "上限3->4", field: "-", func: "-", furniture: "-" },
+          { level: 10, cost: "2.5万", exp: "3500", crop: "草莓", mutation: "冰晶", stall: "-", field: "数量7->8", func: "-", furniture: "-" },
+          { level: 11, cost: "4.5万", exp: "5000", crop: "-", mutation: "-", stall: "上限4->5", field: "-", func: "-", furniture: "-" },
+          { level: 12, cost: "8.58万", exp: "7500", crop: "向日葵", mutation: "橙光/青铜/巨大化", stall: "-", field: "数量8->9", func: "一键种植", furniture: "-" },
+          { level: 13, cost: "10.9万", exp: "10000", crop: "-", mutation: "-", stall: "上限5->6", field: "-", func: "-", furniture: "-" },
+          { level: 14, cost: "13.2万", exp: "12500", crop: "青椒", mutation: "-", stall: "-", field: "数量9->10", func: "-", furniture: "-" },
+          { level: 15, cost: "15.4万", exp: "15000", crop: "-", mutation: "-", stall: "上限6->7", field: "-", func: "-", furniture: "-" },
+          { level: 16, cost: "17.9万", exp: "17500", crop: "大蒜", mutation: "-", stall: "-", field: "数量10->11", func: "-", furniture: "-" },
+          { level: 17, cost: "20.4万", exp: "20000", crop: "-", mutation: "-", stall: "上限7->8", field: "-", func: "-", furniture: "龟背竹盆栽" },
+          { level: 18, cost: "23.6万", exp: "23500", crop: "香蕉", mutation: "琥珀", stall: "-", field: "数量11->12", func: "-", furniture: "-" },
+          { level: 19, cost: "26.8万", exp: "27000", crop: "-", mutation: "-", stall: "上限8->9", field: "-", func: "-", furniture: "-" },
+          { level: 20, cost: "30.3万", exp: "30500", crop: "蓝莓", mutation: "琉璃、青玉、明珠、璀璨", stall: "-", field: "数量12->13", func: "-", furniture: "-" },
+          { level: 21, cost: "33.6万", exp: "34000", crop: "-", mutation: "-", stall: "上限9->10", field: "-", func: "-", furniture: "慢时光冷水壶" },
+          { level: 22, cost: "37.5万", exp: "37500", crop: "黄瓜", mutation: "-", stall: "-", field: "数量13->14", func: "-", furniture: "-" },
+          { level: 23, cost: "41.3万", exp: "42000", crop: "-", mutation: "-", stall: "上限10->11", field: "-", func: "-", furniture: "-" },
+          { level: 24, cost: "45.2万", exp: "46500", crop: "茄子", mutation: "-", stall: "-", field: "数量14->15", func: "-", furniture: "错枝挂衣架" },
+          { level: 25, cost: "49.3万", exp: "51000", crop: "南瓜", mutation: "-", stall: "上限11->12", field: "-", func: "-", furniture: "-" },
+          { level: 26, cost: "53.6万", exp: "55500", crop: "-", mutation: "-", stall: "-", field: "数量15->16", func: "-", furniture: "-" },
+          { level: 27, cost: "593万", exp: "60000", crop: "-", mutation: "-", stall: "上限12->13", field: "-", func: "-", furniture: "-" },
+          { level: 28, cost: "67.5万", exp: "70000", crop: "柚子", mutation: "-", stall: "-", field: "数量16->17", func: "-", furniture: "-" },
+          { level: 29, cost: "76.2万", exp: "80000", crop: "-", mutation: "-", stall: "上限13->14", field: "-", func: "-", furniture: "恬枝伴读组合" },
+          { level: 30, cost: "85.9万", exp: "90000", crop: "卷心菜", mutation: "-", stall: "-", field: "数量17->18", func: "-", furniture: "-" },
+          { level: 31, cost: "97.5万", exp: "100000", crop: "-", mutation: "-", stall: "上限14->15", field: "-", func: "-", furniture: "-" },
+          { level: 32, cost: "110万", exp: "110000", crop: "白萝卜", mutation: "-", stall: "-", field: "数量18->19", func: "-", furniture: "-" },
+          { level: 33, cost: "124万", exp: "120000", crop: "-", mutation: "-", stall: "上限15->16", field: "-", func: "-", furniture: "独处时光绿植" },
+          { level: 34, cost: "140万", exp: "130000", crop: "葡萄", mutation: "-", stall: "-", field: "数量19->20", func: "-", furniture: "-" },
+          { level: 35, cost: "158万", exp: "140000", crop: "-", mutation: "-", stall: "上限16->17", field: "-", func: "-", furniture: "-" },
+          { level: 36, cost: "178万", exp: "160000", crop: "生菜", mutation: "-", stall: "-", field: "数量20->21", func: "-", furniture: "-" },
+          { level: 37, cost: "200万", exp: "180000", crop: "-", mutation: "-", stall: "上限17->18", field: "-", func: "-", furniture: "闲昼伴读香薰" },
+          { level: 38, cost: "227万", exp: "200000", crop: "西瓜", mutation: "-", stall: "-", field: "数量21->22", func: "-", furniture: "-" },
+          { level: 39, cost: "255万", exp: "220000", crop: "-", mutation: "-", stall: "上限18->19", field: "-", func: "-", furniture: "-" },
+          { level: 40, cost: "282万", exp: "240000", crop: "辣椒", mutation: "-", stall: "-", field: "数量22->23", func: "-", furniture: "-" },
+
+          { level: 41, cost: "-", exp: "260000", crop: "-", mutation: "-", stall: "-", field: "-", func: "-", furniture: "-" },
+          { level: 42, cost: "-", exp: "280000", crop: "-", mutation: "-", stall: "-", field: "数量23->24", func: "-", furniture: "-" },
+          
+          { level: 43, cost: "-", exp: "300000", crop: "-", mutation: "-", stall: "-", field: "-", func: "", furniture: "-" },
+          { level: 44, cost: "-", exp: "320000", crop: "-", mutation: "-", stall: "-", field: "可升至2级农田", func: "-", furniture: "-" },
+          { level: 45, cost: "-", exp: "340000", crop: "-", mutation: "-", stall: "-", field: "-", func: "-", furniture: "-" },
+
+          { level: 46, cost: "-", exp: "360000", crop: "-", mutation: "-", stall: "-", field: "2级农田数量1->2", func: "-", furniture: "-" },
+          { level: 47, cost: "468万", exp: "380000", crop: "-", mutation: "-", stall: "上限22->23", field: "-", func: "-", furniture: "-" },
+          { level: 48, cost: "503万", exp: "400000", crop: "木瓜", mutation: "-", stall: "-", field: "2级农田数量2->3", func: "-", furniture: "-" },
+          { level: 49, cost: "532万", exp: "420000", crop: "-", mutation: "-", stall: "上限23->24", field: "-", func: "-", furniture: "秋意伴读瓶" },
+          { level: 50, cost: "561万", exp: "440000", crop: "荞麦", mutation: "-", stall: "-", field: "2级农田数量3->4", func: "-", furniture: "-" },
+          { level: 51, cost: "591万", exp: "460000", crop: "莴笋", mutation: "-", stall: "上限24->25", field: "-", func: "-", furniture: "-" },
+          { level: 52, cost: "638万", exp: "480000", crop: "红枣", mutation: "-", stall: "-", field: "2级农田数量4->5", func: "-", furniture: "-" },
+          { level: 53, cost: "685万", exp: "500000", crop: "棉花", mutation: "-", stall: "上限25->26", field: "-", func: "-", furniture: "艺术角镂空瓶" },
+
+          { level: 54, cost: "734万", exp: "520000", crop: "橘子", mutation: "-", stall: "-", field: "2级农田数量5->6", func: "-", furniture: "-" },
+          { level: 55, cost: "-", exp: "-", crop: "菠萝", mutation: "-", stall: "-", field: "-", func: "-", furniture: "-" },
+         
+
+
+
+        ];
+
+      // 3. 小摊升级表 (原表)
+      const stallData = [
+          { level: 2, cost: "1000", exp: "150", boost: "0.05" },
+          { level: 3, cost: "3000", exp: "360", boost: "0.1" },
+          { level: 4, cost: "1万", exp: "720", boost: "0.15" },
+          { level: 5, cost: "5.4万", exp: "1500", boost: "0.2" },
+          { level: 6, cost: "11.2万", exp: "3000", boost: "0.25" },
+          { level: 7, cost: "17.8万", exp: "4500", boost: "0.3" },
+          { level: 8, cost: "25.6万", exp: "7140", boost: "0.35" },
+          { level: 9, cost: "34.4万", exp: "9720", boost: "0.4" },
+          { level: 10, cost: "44.3万", exp: "1.2万", boost: "0.45" },
+          { level: 11, cost: "56.2万", exp: "1.5万", boost: "0.5" },
+          { level: 12, cost: "69.3万", exp: "1.8万", boost: "0.55" },
+          { level: 13, cost: "86.1万", exp: "2.2万", boost: "0.6" },
+          { level: 14, cost: "114.9万", exp: "2.6万", boost: "0.65" },
+          { level: 15, cost: "152万", exp: "3.2万", boost: "0.7" },
+          { level: 16, cost: "1977万", exp: "4万", boost: "0.75" },
+          { level: 17, cost: "253.8万", exp: "4.9万", boost: "0.8" },
+          { level: 18, cost: "319.6万", exp: "5.9万", boost: "0.85" },
+          { level: 19, cost: "-", exp: "-", boost: "0.9" },
+          { level: 20, cost: "-", exp: "-", boost: "0.95" },
+          { level: 21, cost: "-", exp: "-", boost: "1" },
+          { level: 22, cost: "-", exp: "-", boost: "1.05" },
+          
+          { level: 23, cost: "699.8万", exp: "9.8万", boost: "1.1" },
+          { level: 24, cost: "779.8万", exp: "10.2万", boost: "1.15" },
+          { level: 25, cost: "860.4万", exp: "10.7万", boost: "1.2" },
+          { level: 26, cost: "994.4万", exp: "11.2万", boost: "1.25" },
+          { level: 27, cost: "1133万", exp: "11.8万", boost: "1.3" }
+      ];
+
+      // 4. 农田开垦表 (原表)
+      const fieldData = [
+          { level: 4, cost: "10", exp: "20" },
+          { level: 5, cost: "100", exp: "50" },
+          { level: 6, cost: "1000", exp: "160" },
+          { level: 7, cost: "8000", exp: "500" },
+          { level: 8, cost: "1.6万", exp: "1000" },
+          { level: 9, cost: "7.8万", exp: "3000" },
+          { level: 10, cost: "13万", exp: "6000" },
+          { level: 11, cost: "19万", exp: "9000" },
+          { level: 12, cost: "27万", exp: "12000" },
+          { level: 13, cost: "39万", exp: "15000" },
+          { level: 14, cost: "53万", exp: "18000" },
+          { level: 15, cost: "70万", exp: "21000" },
+          { level: 16, cost: "90万", exp: "25000" },
+          { level: 17, cost: "125万", exp: "30000" },
+          { level: 18, cost: "175万", exp: "37000" },
+          { level: 19, cost: "239万", exp: "45000" },
+          { level: 20, cost: "317万", exp: "56000" },
+          { level: 21, cost: "410万", exp: "67000" },
+          { level: 22, cost: "523万", exp: "78000" },
+          { level: 23, cost: "648万", exp: "89000" },
+          { level: 24, cost: "766万", exp: "100000" }
+      ];
+
+      // ================= 渲染与排序逻辑 =================
       let currentSort = { key: "level", asc: true };
 
       function formatTimeStr(seconds) {
@@ -1293,27 +1328,25 @@
         tbody.innerHTML = "";
         cropData.forEach((row) => {
           const tr = document.createElement("tr");
-          tr.className = "row-hover";
-
-          // 样式分类逻辑
           let rowStyle = "";
           let adviceStyle = "";
           if (row.advice.includes("🌟")) rowStyle = "pmo-star";
-          if (row.advice.includes("👑")) rowStyle = "pmo-crown"; // 版本真神特殊高亮
+          if (row.advice.includes("👑")) rowStyle = "pmo-crown";
           if (row.advice.includes("💰")) {
             rowStyle = "pmo-warning";
             adviceStyle = "color: var(--danger); font-weight: bold;";
           }
-
           tr.className = `row-hover ${rowStyle}`;
           tr.innerHTML = `
-                <td>Lv. ${row.level}</td>
-                <td style="font-weight:bold;">${row.name}</td>
-                <td>${formatTimeStr(row.time)}</td>
-                <td class="${row.unitExp > 700 ? "highlight-data" : ""}">${row.unitExp.toFixed(2)}</td>
-                <td class="${row.unitPrice > 16 ? "highlight-data" : ""}">${row.unitPrice.toFixed(2)}</td>
-                <td style="${adviceStyle}">${row.advice}</td>
-            `;
+            <td>Lv. ${row.level}</td>
+            <td style="font-weight:bold;">${row.name}</td>
+            <td style="color:#888;">${row.buy}</td>
+            <td style="font-weight:bold;">${row.sell}</td>
+            <td>${formatTimeStr(row.time)}</td>
+            <td class="${row.expH > 250 ? "highlight-data" : ""}">${row.expH.toFixed(1)}</td>
+            <td class="${row.coinH > 600 ? "highlight-data" : ""}">${row.coinH.toFixed(1)}</td>
+            <td style="${adviceStyle}">${row.advice}</td>
+          `;
           tbody.appendChild(tr);
         });
       }
@@ -1326,7 +1359,6 @@
           currentSort.asc = false;
           if (key === "level" || key === "time") currentSort.asc = true;
         }
-
         cropData.sort((a, b) => {
           let valA = a[key];
           let valB = b[key];
@@ -1337,9 +1369,66 @@
         renderTable();
       }
 
-      // 页面加载时渲染一次表格
-      // 直接执行渲染，不等待外部统计代码，彻底解决卡顿和空白
-      renderTable();
+      // ================= 新增：渲染其他三张静态表 =================
+      function renderStaticTables() {
+        const farmBody = document.getElementById("farmTableBody");
+        farmData.forEach(row => {
+            farmBody.innerHTML += `<tr class="row-hover">
+                <td>Lv. ${row.level}</td>
+                <td style="color:var(--danger);">${row.cost}</td>
+                <td>${row.exp}</td>
+                <td style="color:var(--primary); font-weight:bold;">${row.crop}</td>
+                <td style="color:#8b5a2b;">${row.mutation}</td>
+                <td style="color:var(--secondary);">${row.stall}</td>
+                <td style="color:var(--secondary);">${row.field}</td>
+                <td style="color:var(--secondary);">${row.func}</td>
+                <td style="color:var(--secondary);">${row.furniture}</td>
+            </tr>`;
+        });
+
+        const stallBody = document.getElementById("stallTableBody");
+        stallData.forEach(row => {
+            let boostStr = row.boost === "-" ? "-" : "+ " + (parseFloat(row.boost) * 100).toFixed(0) + "%";
+            stallBody.innerHTML += `<tr class="row-hover">
+                <td>Lv. ${row.level}</td>
+                <td style="color:var(--danger);">${row.cost}</td>
+                <td>${row.exp}</td>
+                <td style="color:var(--primary); font-weight:bold;">${boostStr}</td>
+            </tr>`;
+        });
+        
+
+        const fieldBody = document.getElementById("fieldTableBody");
+        fieldData.forEach(row => {
+            fieldBody.innerHTML += `<tr class="row-hover">
+                <td>第 ${row.level} 块</td>
+                <td style="color:var(--danger); font-weight:bold;">${row.cost}</td>
+                <td style="color:var(--primary);">${row.exp}</td>
+            </tr>`;
+        });
+
+        
+      }
+
+      // ================= 数据中心 Tab 切换逻辑 =================
+      function switchTab(tabId) {
+          document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+          event.currentTarget.classList.add('active');
+          document.getElementById('tab-' + tabId).classList.add('active');
+      }
+
+      // 页面加载完成后执行渲染
+      document.addEventListener("DOMContentLoaded", () => {
+          renderTable();          // 渲染作物表
+          renderStaticTables();   // 渲染剩下的三张表
+      });
+
+
+      
+
+      
+      
     </script>
   </body>
 </html>
