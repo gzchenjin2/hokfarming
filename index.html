@@ -462,6 +462,39 @@
         </div>
 
         <div id="resultPanel"></div>
+
+
+        <div id="saveHarvestContainer" style="display: none; margin-top: 15px;">
+          <div style="display: flex; gap: 8px;">
+            <input 
+              type="text" 
+              id="harvestRecordName" 
+              placeholder="给记录取个名字（如XXX-菠萝）" 
+              style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;" 
+            />
+            <button class="alarm-btn" style="width: auto; padding: 0 15px; margin: 0; background: var(--primary); color: #fff; cursor: pointer;" onclick="saveHarvestRecord()">💾 保存</button>
+          </div>
+        </div>
+
+        <!-- <div id="tab-crops" class="tab-content active">
+          <div id="historyPanel" style="display: none; margin-bottom: 15px;">
+            <div style="font-size: 14px; font-weight: bold; color: var(--primary); margin-bottom: 8px;">🕒 最近 10 次排期记录</div>
+            <div id="historyList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div> -->
+
+
+        <div id="historyPanel" class="card" style="display: none; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border); margin-bottom: 10px; padding-bottom: 8px;">
+              <h2 class="card-title" id="historyTitle" style="border:none; margin: 0; font-size: 16px;">🕒 最近 10 次收割记录</h2>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 12px; color: var(--text-muted);">显示条数:</span>
+                  <input type="number" id="maxHistoryCount" value="5" min="1" max="50" onchange="updateMaxHistoryCount()" style="width: 45px; padding: 4px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; text-align: center;">
+              </div>
+          </div>
+          <div id="historyList"></div>
+      </div>
+
+        
       </div>
 
       <div class="card">
@@ -656,6 +689,18 @@
               <div id="alarmBox4"></div>
             </div>
           </div>
+
+        <!-- <div style="margin-top: 15px; display: flex; gap: 8px;">
+            <input 
+              type="text" 
+              id="recordName" 
+              placeholder="给这次排期起个名字 (例: 睡前种白萝卜)" 
+              style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;" 
+            />
+            <button class="alarm-btn" style="width: auto; padding: 0 15px; margin: 0; background: var(--primary); color: #fff;" onclick="saveCurrentTimeline()">💾 保存记录</button>
+          </div> -->
+
+
         </div>
       </div>
 
@@ -734,6 +779,8 @@
       <div class="card">
         <h2 class="card-title" style="border:none; margin-bottom: 5px;">📊 农场数据中心</h2>
 
+        
+
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('crops')">🌾 作物信息</button>
             <button class="tab-btn" onclick="switchTab('farm')">🏡 农场等级</button>
@@ -742,8 +789,11 @@
             <button class="tab-btn" onclick="switchTab('field')">🚜 农田开垦</button>
         </div>
 
-        <div id="tab-crops" class="tab-content active">
+        
+          
             <div class="table-wrapper">
+
+              
             <table>
                 <thead>
                 <tr>
@@ -889,6 +939,8 @@
       }
 
       function calculate() {
+        document.getElementById("saveHarvestContainer").style.display = "none";
+        window.currentHarvestData = null;
         const th = parseInt(document.getElementById("t_h").value) || 0;
         const tmInput = document.getElementById("t_m");
         const tm = tmInput ? parseInt(tmInput.value) || 0 : 0;
@@ -1002,6 +1054,11 @@
             const durationStr =
               act.offset === 0 ? "现在" : formatDuration(act.offset) + "后";
 
+            // 把算好的字符串挂载回 act 对象上，供底部保存功能读取
+            act.timeStr = timeStr;
+            act.durationStr = durationStr;
+            
+
             if (act.type === "water") {
               html += `<li style="margin-bottom: 6px;">${durationStr} <strong>(${timeStr})</strong><br><span style="color: var(--secondary); font-weight: bold;">${act.title}</span></li>`;
             } else {
@@ -1018,6 +1075,8 @@
 
           panel.className = "alert-warning";
           panel.innerHTML = html;
+          window.currentHarvestData = actions.map(a => `${a.durationStr} <strong>(${a.timeStr})</strong> ${a.title}`).join("<br>");
+          document.getElementById("saveHarvestContainer").style.display = "block";
           return;
         }
 
@@ -1037,6 +1096,8 @@
                 等待浇水按键亮起的时间（${formatDuration(waitMins)}）已经大于等于自然成熟的时间（${formatDuration(R)}）。<br>
                 👉 <strong>建议：</strong>无须操作，让植物自然成熟即可。
                 `;
+          window.currentHarvestData = "⚠️ 卡门槛，建议自然成熟";
+          document.getElementById("saveHarvestContainer").style.display = "block";
           return;
         }
 
@@ -1046,6 +1107,7 @@
                 <strong style="font-size: 20px;">🔥 马上浇水！直接秒熟！</strong><br>
                 不用等了，现在按下浇水键，植物瞬间成熟！
                 `;
+          window.currentHarvestData = "🔥 现在立刻浇水秒熟！";
         } else {
           const now = new Date();
           const alarmTime = new Date(now.getTime() + waitMins * 60000);
@@ -1060,7 +1122,9 @@
                 在此时间点，浇水按键将刚好亮起，按下瞬间成熟！
                 `;
           panel.innerHTML += `<button class="alarm-btn" style="margin-top: 10px;" onclick="createAlarm('农场秒熟收割', ${alarmTime.getTime()})">⏰ 为本次操作设日历</button>`;
+          window.currentHarvestData = `等 ${formatDuration(waitMins)} (${dayPrefix}${formatClockTime(alarmTime)}) 浇水秒熟`;
         }
+        document.getElementById("saveHarvestContainer").style.display = "block";
       }
 
       // 初始化当前时间
@@ -1203,6 +1267,17 @@
         const t2 = new Date(startTime.getTime() + m2 * 60000);
         const t3 = new Date(startTime.getTime() + m3 * 60000);
         const t4 = new Date(startTime.getTime() + m4 * 60000);
+
+
+
+        window.currentTimelineData = {
+          t2: formatDisplayDate(t2),
+          t3: formatDisplayDate(t3),
+          t4: formatDisplayDate(t4)
+        };
+
+
+
 
         // 渲染到界面
         document.getElementById("timelinePanel").style.display = "block";
@@ -1555,10 +1630,84 @@
       //     renderStaticTables();   // 渲染剩下的三张表
       // });
 
+
+      // // ================= 排期表的记录！！！！ =================
+      // // ================= 本地记录保存与读取逻辑 =================
+      // function saveCurrentTimeline() {
+      //   const nameInput = document.getElementById("recordName").value.trim();
+      //   const name = nameInput || "未命名排期";
+      //   if (!window.currentTimelineData) return alert("没有可保存的数据！请先生成排期。");
+
+      //   const record = {
+      //     id: Date.now(), // 用时间戳做唯一ID
+      //     name: name,
+      //     data: window.currentTimelineData
+      //   };
+
+      //   // 从本地存储读取历史记录，如果没有就默认空数组
+      //   let history = JSON.parse(localStorage.getItem("farm_history") || "[]");
+      //   history.unshift(record); // 把最新记录插到最前面
+      //   if (history.length > 10) history = history.slice(0, 10); // 永远只保留前10条
+
+      //   localStorage.setItem("farm_history", JSON.stringify(history)); // 存回本地
+      //   document.getElementById("recordName").value = ""; // 清空输入框
+        
+      //   alert("✅ 保存成功！可在下方【作物信息】顶部查看。");
+      //   renderHistory(); // 刷新界面
+      //   switchTab('crops'); // 自动跳转到作物信息 Tab 方便查看
+      // }
+
+      // function renderHistory() {
+      //   const history = JSON.parse(localStorage.getItem("farm_history") || "[]");
+      //   const panel = document.getElementById("historyPanel");
+      //   const list = document.getElementById("historyList");
+
+      //   if (history.length === 0) {
+      //     panel.style.display = "none";
+      //     return;
+      //   }
+
+      //   panel.style.display = "block";
+      //   list.innerHTML = ""; // 清空旧列表
+
+      //   history.forEach(item => {
+      //     const d = item.data;
+      //     list.innerHTML += `
+      //       <div style="background: #fafafa; border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+      //           <div style="flex: 1;">
+      //               <div style="font-weight: bold; font-size: 13px; color: var(--text-main); margin-bottom: 4px;">🔖 ${item.name}</div>
+      //               <div style="font-size: 11px; color: var(--text-muted);">
+      //                   💧 2次: <span style="color:var(--secondary)">${d.t2}</span> &nbsp;|&nbsp; 
+      //                   💧 3次: <span style="color:var(--secondary)">${d.t3}</span> &nbsp;|&nbsp; 
+      //                   🔥 秒熟: <span style="color:var(--danger); font-weight:bold;">${d.t4}</span>
+      //               </div>
+      //           </div>
+      //           <button onclick="deleteHistory(${item.id})" style="background: none; border: none; color: #999; font-size: 14px; cursor: pointer; padding: 5px;">🗑️</button>
+      //       </div>
+      //     `;
+      //   });
+      // }
+
+      // function deleteHistory(id) {
+      //   let history = JSON.parse(localStorage.getItem("farm_history") || "[]");
+      //   history = history.filter(item => item.id !== id); // 过滤掉要删的这条
+      //   localStorage.setItem("farm_history", JSON.stringify(history));
+      //   renderHistory(); // 重新刷新界面
+      // }
+      // // ================= 排期表的记录结束 =================
+
+
+
+
+
+
       // 页面加载完成后执行渲染与环境判断
       document.addEventListener("DOMContentLoaded", () => {
           renderTable();          // 渲染作物表
           renderStaticTables();   // 渲染剩下的三张表
+          renderHarvestHistory();
+          // renderHistory(); //排期表的记录
+
 
           // 判断当前环境
           const isApp = window.Capacitor && window.Capacitor.isNativePlatform();
@@ -1576,6 +1725,102 @@
           }
           // 如果是 App：不蒜子保持隐藏，且绝对不会发出网络请求
       });
+
+
+      // ================= 收割记录：本地保存、读取、删除、条数设置逻辑 =================
+      
+      // 获取用户设置的最大条数 (默认10)
+      function getMaxHistoryCount() {
+        return parseInt(localStorage.getItem("harvest_history_max")) || 5;
+      }
+
+      // 用户修改输入框时触发
+      function updateMaxHistoryCount() {
+        let val = parseInt(document.getElementById("maxHistoryCount").value);
+        if (isNaN(val) || val < 1) val = 10; // 防止乱输
+        localStorage.setItem("harvest_history_max", val);
+        
+        // 重新读取记录，如果现在的条数超过了新设置的最大值，直接裁掉多余的
+        let history = JSON.parse(localStorage.getItem("harvest_history") || "[]");
+        if (history.length > val) {
+            history = history.slice(0, val);
+            localStorage.setItem("harvest_history", JSON.stringify(history));
+        }
+        renderHarvestHistory(); // 刷新列表
+      }
+
+      function saveHarvestRecord() {
+        const nameInput = document.getElementById("harvestRecordName").value.trim();
+        const name = nameInput || "未命名记录";
+        if (!window.currentHarvestData) return; // 没有数据直接退出，不弹窗
+
+        const record = {
+          id: Date.now(),
+          name: name,
+          desc: window.currentHarvestData
+        };
+
+        let history = JSON.parse(localStorage.getItem("harvest_history") || "[]");
+        history.unshift(record);
+        
+        // 动态获取最大限制条数
+        const maxCount = getMaxHistoryCount();
+        if (history.length > maxCount) history = history.slice(0, maxCount);
+
+        localStorage.setItem("harvest_history", JSON.stringify(history));
+        document.getElementById("harvestRecordName").value = ""; 
+        
+        // 核心修改：去掉了 alert 弹窗，直接无感刷新列表
+        renderHarvestHistory(); 
+      }
+
+      function renderHarvestHistory() {
+        const history = JSON.parse(localStorage.getItem("harvest_history") || "[]");
+        const panel = document.getElementById("historyPanel");
+        const list = document.getElementById("historyList");
+        const maxCount = getMaxHistoryCount();
+
+        // 动态更新标题和输入框里的数字
+        const titleEl = document.getElementById("historyTitle");
+        if (titleEl) titleEl.innerText = `🕒 最近 ${maxCount} 次收割记录`;
+        const countInput = document.getElementById("maxHistoryCount");
+        if (countInput) countInput.value = maxCount;
+
+        if (history.length === 0) {
+          panel.style.display = "none";
+          return;
+        }
+
+        panel.style.display = "block";
+        list.innerHTML = ""; 
+
+        history.forEach(item => {
+          list.innerHTML += `
+            <div style="background: #fafafa; border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <div style="font-weight: bold; font-size: 13px; color: var(--primary); margin-bottom: 4px;">🔖 ${item.name}</div>
+                    <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        ${item.desc}
+                    </div>
+                </div>
+                <button onclick="deleteHarvestHistory(${item.id})" style="background: none; border: none; font-size: 16px; cursor: pointer; padding: 5px; opacity: 0.6;">🗑️</button>
+            </div>
+          `;
+        });
+      }
+
+      function deleteHarvestHistory(id) {
+        let history = JSON.parse(localStorage.getItem("harvest_history") || "[]");
+        history = history.filter(item => item.id !== id); 
+        localStorage.setItem("harvest_history", JSON.stringify(history));
+        renderHarvestHistory(); 
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        renderHarvestHistory();
+      });
+
+      
 
 
       
