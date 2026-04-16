@@ -727,9 +727,16 @@
         <span class="toggle-icon">▼</span>
       </div>
       <div class="card-content">
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px;">
-          <button class="ios-btn btn-reset" onclick="resetDailyAll()">每日重置</button>
-          <button class="ios-btn btn-add" onclick="addNewAccount()">+</button>
+       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="display: flex; gap: 8px;">
+            <button class="ios-btn" style="background:#f4f5f9; color:#666;" onclick="exportToCSV()">📤 导出Excel</button>
+            <button class="ios-btn" style="background:#f4f5f9; color:#666;" onclick="document.getElementById('importFile').click()">📥 导入备份</button>
+            <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importFromCSV(event)">
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="ios-btn btn-reset" onclick="resetDailyAll()">每日重置</button>
+            <button class="ios-btn btn-add" onclick="addNewAccount()">+</button>
+          </div>
         </div>
 
 
@@ -2309,12 +2316,125 @@
       setInterval(renderAccountManager, 60000); // 每分钟刷新一次红字状态
     };
 
+
+
+
+    // ================= 备份与恢复 (Excel/CSV 引擎) =================
+
+    // 1. 导出为 Excel 可读的 CSV 文件
+    function exportToCSV() {
+      if (window.accounts.length === 0) return alert("当前没有账号数据可导出！");
+      
+      // 加上 BOM 头，防止 Excel 打开中文乱码
+      let csvContent = "\uFEFF大区,名字,祝福,任务(完成填1否则填0),作物,水1,水2,收获\n";
+      
+      window.accounts.forEach(a => {
+        let row = [
+          a.area || '', a.name || '', a.blessing || 0, 
+          a.taskDone ? '1' : '0', a.fruit || '', 
+          a.water1 || '', a.water2 || '', a.harvest || ''
+        ];
+        // 处理特殊字符并拼接
+        csvContent += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+      });
+
+      // 触发下载
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `农场账号备份_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // 2. 极致稳健的单行 CSV 解析器（防英文逗号割裂名字）
+    function parseCSVRow(str) {
+      const result = [];
+      let current = '', inQuotes = false;
+      for (let i = 0; i < str.length; i++) {
+        let char = str[i];
+        if (inQuotes) {
+          if (char === '"') {
+            if (i + 1 < str.length && str[i + 1] === '"') { current += '"'; i++; } 
+            else { inQuotes = false; }
+          } else { current += char; }
+        } else {
+          if (char === '"') inQuotes = true;
+          else if (char === ',') { result.push(current); current = ''; } 
+          else current += char;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    // 3. 读取并导入文件
+    function importFromCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        // 支持 Mac 和 Win 的换行符
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+        
+        if (lines.length <= 1) {
+          event.target.value = ''; // 重置文件选框
+          return alert("❌ 文件为空或格式不正确！");
+        }
+
+        const newAccs = [];
+        // 跳过第一行表头，从第 2 行开始解析
+        for (let i = 1; i < lines.length; i++) {
+          const row = parseCSVRow(lines[i]);
+          if (row.length < 8) continue; // 忽略不完整行
+          
+          newAccs.push({
+            id: Date.now() + i, // 重新分配安全 ID
+            area: row[0].trim(),
+            name: row[1].trim(),
+            blessing: parseInt(row[2]) || 0,
+            taskDone: row[3].trim() === '1',
+            fruit: row[4].trim(),
+            water1: row[5].trim(),
+            water2: row[6].trim(),
+            harvest: row[7].trim(),
+            water1_ts: null, water2_ts: null, harvest_ts: null // 清除底层旧时间戳
+          });
+        }
+
+        if (newAccs.length > 0) {
+          if (confirm(`📦 成功解析到 ${newAccs.length} 个账号！\n\n⚠️ 警告：导入将【完全覆盖】当前设备的所有账号数据。\n\n是否继续？`)) {
+            window.accounts = newAccs;
+            saveAccs();
+            updateSyncDropdowns();
+            renderAccountManager();
+            alert("✅ 数据迁移导入成功！");
+          }
+        } else {
+          alert("❌ 没有读取到有效数据，请确保文件格式正确。");
+        }
+        event.target.value = ''; // 无论成功失败，重置文件选框以允许重复导入同一文件
+      };
+      
+      reader.readAsText(file, 'UTF-8');
+    }
+
+
+
+
+
+
     // 别忘了在底部的 Object.assign 中暴露这些新函数给 HTML 调用
     Object.assign(window, {
       addNewAccount, deleteAcc, updateAccField, toggleAccTask,
       resetDailyAll, resetAccRow, moveAcc, syncTimelineToAccount, syncCalcToAccount,
       // 🌟 清理更新了正确的触摸事件函数名
-      startTouch, cancelTouch, preventClickIfLongPress
+      startTouch, cancelTouch, preventClickIfLongPress,
+      exportToCSV, importFromCSV
     });
 
 
