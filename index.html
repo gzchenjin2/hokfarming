@@ -702,22 +702,22 @@
 
 
           <div id="saveHarvestContainer" style="display: none; margin-top: 15px;">
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="harvestRecordName" placeholder="给记录取个名字（如XXX-菠萝）"
-                style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;" />
-
-
-              <button class="alarm-btn"
-                style="width: auto; padding: 0 15px; margin: 0; background: var(--primary); color: #fff; cursor: pointer;"
-                <button class="sync-btn" onclick="saveHarvestRecord()">保存</button>
-
-              <select class="acc-sync-select" id="calcSyncSelect" style="flex: 1; padding: 8px; font-size: 13px;">
-                <option value="">同步计算结果到账号...</option>
-              </select>
-
-              <button class="sync-btn" onclick="syncCalcToAccount()">同步</button>
-            </div>
+          
+          <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+            <input type="text" id="harvestRecordName" placeholder="给记录取个名字（如XXX-菠萝）"
+              style="flex: 1; padding: 0 10px; height: 40px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; box-sizing: border-box;" />
+            <button class="sync-btn" onclick="saveHarvestRecord()">保存</button>
           </div>
+
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select class="acc-sync-select" id="calcSyncSelect" 
+              style="flex: 1; padding: 0 10px; height: 40px; border-radius: 8px; font-size: 14px; box-sizing: border-box; border: 1px solid var(--border);">
+              <option value="">同步计算结果到账号...</option>
+            </select>
+            <button class="sync-btn" onclick="syncCalcToAccount()">同步</button>
+          </div>
+          
+        </div>
 
 
 
