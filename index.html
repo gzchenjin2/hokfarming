@@ -272,11 +272,16 @@
     .sort-btn:active { background: #dcdcdc; }
     .sort-btn:first-child { border-bottom: 1px solid #fff; }
 
-    /* ================= 8. 终极时间选择器：透明层+悬浮叉号 ================= */
+    /* ================= 8. 终极时间选择器：透明层 ================= */
     .time-display {
       width: 100%; text-align: center; font-size: 13px; font-weight: bold;
       color: #07c160; pointer-events: none; /* 让点击穿透 */
+      /* 👇 核心修复：严禁长按时选中这行绿色的文字 */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none; /* 禁用苹果的长按放大镜和菜单 */
     }
+    
     .time-display.danger {
       color: #ff4d4f; background: rgba(255, 77, 79, 0.1);
       border-radius: 4px; padding: 2px 4px; animation: dangerPulse 2s infinite;
@@ -287,6 +292,17 @@
     input[type="time"].acc-time-overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       opacity: 0; cursor: pointer; z-index: 5; margin: 0; padding: 0; border: none;
+    }
+
+    /* ================= 神仙思路：全透明清空覆盖层 ================= */
+    .invisible-clear-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 10; cursor: pointer;
+      /* 👇 核心修复：严禁长按透明层时触发系统文本选择 */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent; /* 顺手干掉安卓机点击时自带的灰色方块闪烁 */
     }
 
     /* 悬浮清空小叉号 */
@@ -321,17 +337,7 @@
 
 
 
-    /* ================= 神仙思路：全透明清空覆盖层 ================= */
-    .invisible-clear-layer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10; /* 层级最高，盖住下面的原生时间输入框 */
-      cursor: pointer;
-      /* background-color: rgba(255, 0, 0, 0.2); 测试时可以把这行取消注释，看看它是不是盖住了全格 */
-    }
+    
   </style>
 </head>
 
@@ -1955,65 +1961,78 @@
     // 1. 初始化数据
     window.accounts = JSON.parse(localStorage.getItem('farm_accounts') || '[]');
 
-    // 2. 核心：判断时间危险区 (加入底层时间戳，完美解决跨日Bug)
+    // 2. 核心：判断时间危险区 (修复“过期后变绿”的漏洞)
     function isTimeDanger(targetTime, targetTs) {
       if (!targetTime) return false;
       const now = new Date();
 
-      // 1. 如果有系统同步带过来的精确时间戳，优先用时间戳
+      // 情况 A：有精确时间戳（从排期器或计算器同步过来的）
       if (targetTs) {
         const diffMins = (targetTs - now.getTime()) / 60000;
-        return diffMins >= -60 && diffMins <= 30;
+        // 🌟 核心修复：只要离目标时间不到 30 分钟，或者【无论过期了多久】（负数），统统标红！
+        // 只有 diffMins > 30（还在很久以后的未来）才是绿色。
+        return diffMins <= 30; 
       }
 
-      // 2. 如果是手动输入的 HH:mm，执行跨日判定
+      // 情况 B：手动输入的 HH:mm（只有时间，没有日期）
       const [h, m] = targetTime.split(':').map(Number);
       let diff = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
 
-      // 核心：处理跨日误差（1440分钟为一圈）
-      if (diff < -720) diff += 1440; // 处理“现在23点，目标0点”
-      if (diff > 720) diff -= 1440;  // 处理“现在0点，目标23点”
+      // 处理跨日误差（1440分钟为一圈）
+      if (diff < -720) diff += 1440; 
+      if (diff > 720) diff -= 1440;  
 
-      // 判定区间：已经过了最多60分钟，或还有最多30分钟到期
-      return diff >= -60 && diff <= 30;
+      // 🌟 核心修复：针对手动输入的时间，我们将“过期追杀期”从 1 小时大幅延长到 8 小时（-480分钟）。
+      // 为什么不无限长？因为没有日期，超过 12 小时系统会分不清你是“昨天错过了”，还是“定了明天的闹钟”。
+      // 8 个小时足够覆盖日常漏浇水的所有情况了！
+      return diff >= -480 && diff <= 30;
     }
 
 
 
-    // ================= 终极长按引擎 (太极打法，绝不激怒 iOS Safari) =================
-    window.lpTimer = null;
-    window.lpFired = false; // 记录是否已经触发了长按
+    // ================= 方便配置的全局参数 =================
+    window.CLEAR_HOLD_TIME = 500; 
 
-    // 1. 手指按下：只负责倒计时，绝对不拦截任何系统事件
-    function startTouch(e, index, field) {
-      window.lpFired = false; 
+    // ================= 透明覆盖层专属长按引擎 =================
+    window.clearTimer = null;
+    window.clearFired = false;
+
+    function startClearPress(e, index, field) {
+      window.clearFired = false;
+      const target = e.target;
       
-      window.lpTimer = setTimeout(() => {
-        window.lpFired = true; // 倒计时结束，标记长按生效
-        
-        // 执行清空逻辑
-        if (field === 'blessing') {
-          window.accounts[index].blessing = 0;
-        } else {
-          window.accounts[index][field] = '';
-          window.accounts[index][field + '_ts'] = null;
-        }
-        
-        saveAccs();
-        
-        // 局部更新 DOM 样式
-        const row = document.getElementById('accountListBody').children[index];
-        if (row) {
-          const isDone = window.accounts[index].taskDone && (parseInt(window.accounts[index].blessing) === 0);
-          if (isDone) row.classList.add('name-completed');
-          else row.classList.remove('name-completed');
-        }
-        
-        if (field === 'name') updateSyncDropdowns();
-        renderAccountManager();
+      if (target) target.style.backgroundColor = "rgba(0, 0, 0, 0.08)";
+      
+      // 🌟 震动预热解锁
+      if (navigator.vibrate) navigator.vibrate(1);
 
-        if (navigator.vibrate) navigator.vibrate(50); // 震动反馈
-      }, 600);
+      window.clearTimer = setTimeout(() => {
+        window.clearFired = true;
+        if (target) target.style.backgroundColor = "transparent";
+        
+        updateAccField(index, field, '');
+        
+        // 成功触发震动反馈
+        if (navigator.vibrate) navigator.vibrate(50); 
+      }, window.CLEAR_HOLD_TIME);
+    }
+
+    function cancelClearPress(e) {
+      if (window.clearTimer) {
+        clearTimeout(window.clearTimer);
+        window.clearTimer = null;
+      }
+      // 手指松开/滑走时，恢复完全透明
+      if (e && e.target) e.target.style.backgroundColor = "transparent";
+    }
+
+    function handleClearClick(e) {
+      e.stopPropagation(); // 阻止事件冒泡
+      if (window.clearFired) {
+        e.preventDefault();
+        return false;
+      }
+      // 如果只是短按，什么都不做，完美防止误触！
     }
 
     // 2. 手指松开/滑动：取消倒计时
@@ -2092,26 +2111,56 @@
         <input value="${acc.fruit || ''}" oninput="updateAccField(${index}, 'fruit', this.value)" placeholder="作物">
       </div>
 
+
+
+
+
+
+
       <div class="acc-td" style="position: relative; width: 100%; height: 100%;">
         <div class="time-display ${isTimeDanger(acc.water1, acc.water1_ts) ? 'danger' : ''}">${acc.water1 || '--:--'}</div>
         <input type="time" class="acc-time-overlay" value="${acc.water1 || ''}" oninput="updateAccField(${index}, 'water1', this.value, this)">
         
-        ${acc.water1 ? `<div class="invisible-clear-layer" onclick="updateAccField(${index}, 'water1', ''); event.stopPropagation();"></div>` : ''}
+        ${acc.water1 ? `<div class="invisible-clear-layer" 
+          ontouchstart="startClearPress(event, ${index}, 'water1')" 
+          ontouchmove="cancelClearPress(event)" 
+          ontouchend="cancelClearPress(event)" 
+          onmousedown="startClearPress(event, ${index}, 'water1')" 
+          onmouseup="cancelClearPress(event)" 
+          onmouseleave="cancelClearPress(event)" 
+          onclick="handleClearClick(event)"></div>` : ''}
       </div>
 
       <div class="acc-td" style="position: relative; width: 100%; height: 100%;">
         <div class="time-display ${isTimeDanger(acc.water2, acc.water2_ts) ? 'danger' : ''}">${acc.water2 || '--:--'}</div>
         <input type="time" class="acc-time-overlay" value="${acc.water2 || ''}" oninput="updateAccField(${index}, 'water2', this.value, this)">
         
-        ${acc.water2 ? `<div class="invisible-clear-layer" onclick="updateAccField(${index}, 'water2', ''); event.stopPropagation();"></div>` : ''}
+        ${acc.water2 ? `<div class="invisible-clear-layer" 
+          ontouchstart="startClearPress(event, ${index}, 'water2')" 
+          ontouchmove="cancelClearPress(event)" 
+          ontouchend="cancelClearPress(event)" 
+          onmousedown="startClearPress(event, ${index}, 'water2')" 
+          onmouseup="cancelClearPress(event)" 
+          onmouseleave="cancelClearPress(event)" 
+          onclick="handleClearClick(event)"></div>` : ''}
       </div>
 
       <div class="acc-td" style="position: relative; width: 100%; height: 100%;">
         <div class="time-display ${isTimeDanger(acc.harvest, acc.harvest_ts) ? 'danger' : ''}">${acc.harvest || '--:--'}</div>
         <input type="time" class="acc-time-overlay" value="${acc.harvest || ''}" oninput="updateAccField(${index}, 'harvest', this.value, this)">
         
-        ${acc.harvest ? `<div class="invisible-clear-layer" onclick="updateAccField(${index}, 'harvest', ''); event.stopPropagation();"></div>` : ''}
+        ${acc.harvest ? `<div class="invisible-clear-layer" 
+          ontouchstart="startClearPress(event, ${index}, 'harvest')" 
+          ontouchmove="cancelClearPress(event)" 
+          ontouchend="cancelClearPress(event)" 
+          onmousedown="startClearPress(event, ${index}, 'harvest')" 
+          onmouseup="cancelClearPress(event)" 
+          onmouseleave="cancelClearPress(event)" 
+          onclick="handleClearClick(event)"></div>` : ''}
       </div>
+
+
+
       
 
 
@@ -2200,30 +2249,33 @@
 
     function startTouch(e, index, field) {
       window.lpFired = false; 
+      
+      // 🌟 震动预热解锁：手指按下的瞬间，立刻微震 1ms，解锁本次手势的震动权限
+      if (navigator.vibrate) navigator.vibrate(1);
+
       window.lpTimer = setTimeout(() => {
         window.lpFired = true; 
         
         if (field === 'blessing') {
-          // 1. 修改底层数据
           window.accounts[index].blessing = 0;
           saveAccs();
           
-          // 2. 🌟 修复关键：把表面输入框的数字也改成 0！
           if (e && e.target) {
             e.target.value = 0;
-            e.target.blur(); // 顺便让输入框失去焦点，防止弹键盘
+            e.target.blur(); 
           }
           
-          // 3. 局部更新同行样式，保护键盘不掉
           const row = document.getElementById('accountListBody').children[index];
           if (row) {
             const isDone = window.accounts[index].taskDone && (parseInt(window.accounts[index].blessing) === 0);
             if (isDone) row.classList.add('name-completed');
             else row.classList.remove('name-completed');
           }
-          if (navigator.vibrate) navigator.vibrate(50); // 震动反馈
+          
+          // 此时由于权限已解锁，长按结束时的明显震动就能成功触发
+          if (navigator.vibrate) navigator.vibrate(50); 
         }
-      }, 600);
+      }, window.CLEAR_HOLD_TIME);
     }
 
     function cancelTouch() {
@@ -2254,30 +2306,41 @@
    function updateAccField(i, f, v, el) {
       window.accounts[i][f] = v;
       
-      // 1. 如果修改的是时间
       if (f.startsWith('water') || f === 'harvest') {
         window.accounts[i][f + '_ts'] = null;
         saveAccs();
         
         if (el) {
           const td = el.parentElement;
-          // 局部更新文字
           const displayDiv = td.querySelector('.time-display');
-          if (displayDiv) displayDiv.innerText = v || '--:--';
+          if (displayDiv) {
+            displayDiv.innerText = v || '--:--';
+            // 同步更新颜色状态
+            if (isTimeDanger(v, null)) displayDiv.classList.add('danger');
+            else displayDiv.classList.remove('danger');
+          }
           
-          // 🌟 清除冗余：动态显示/隐藏“全透明隐形层” (彻底抛弃旧版小叉号)
           let layer = td.querySelector('.invisible-clear-layer');
+          // 🌟 修复关键：动态生成的层必须和初始渲染的事件完全一致
           if (v && !layer) {
-            td.insertAdjacentHTML('beforeend', `<div class="invisible-clear-layer" onclick="updateAccField(${i}, '${f}', ''); event.stopPropagation();"></div>`);
+            const layerHtml = `<div class="invisible-clear-layer" 
+              ontouchstart="startClearPress(event, ${i}, '${f}')" 
+              ontouchmove="cancelClearPress(event)" 
+              ontouchend="cancelClearPress(event)" 
+              onmousedown="startClearPress(event, ${i}, '${f}')" 
+              onmouseup="cancelClearPress(event)" 
+              onmouseleave="cancelClearPress(event)" 
+              onclick="handleClearClick(event)"></div>`;
+            td.insertAdjacentHTML('beforeend', layerHtml);
           } else if (!v && layer) {
             layer.remove();
           }
         } else {
-          // 如果是清空操作，重绘表格
           renderAccountManager();
         }
         return;
       }
+      // ... 其余逻辑保持不变
 
       saveAccs();
       
@@ -2434,7 +2497,9 @@
       resetDailyAll, resetAccRow, moveAcc, syncTimelineToAccount, syncCalcToAccount,
       // 🌟 清理更新了正确的触摸事件函数名
       startTouch, cancelTouch, preventClickIfLongPress,
-      exportToCSV, importFromCSV
+      exportToCSV, importFromCSV,
+      startClearPress, cancelClearPress, handleClearClick
+      
     });
 
 
