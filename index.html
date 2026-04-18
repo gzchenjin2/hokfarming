@@ -1556,6 +1556,13 @@
 
         panel.className = "alert-warning";
         panel.innerHTML = html;
+        
+        // 👇 新增这一段：将推演的绝对时间戳挂载到全局
+        window.currentHarvestActs = actions.map(act => {
+           const actTime = new Date(now.getTime() + act.offset * 60000);
+           return { timeStr: formatClockTime(actTime), ts: actTime.getTime() };
+        });
+
         window.currentHarvestData = actions.map(a => {
           if (a.type === "kill") {
             return `${a.durationStr} <strong style="color: var(--danger);">(${a.timeStr})</strong> ${a.title}`;
@@ -1584,6 +1591,10 @@
                 👉 <strong>建议：</strong>无须操作，让植物自然成熟即可。
                 `;
 
+        // 👇 新增这一段：自然成熟时间戳
+        const targetTime = new Date(now.getTime() + R * 60000);
+        window.currentHarvestActs = [{ timeStr: formatClockTime(targetTime), ts: targetTime.getTime() }];
+        
         window.currentHarvestData = "<strong style='color: var(--warning);'>⚠️ 卡门槛，建议自然成熟</strong>";
         document.getElementById("saveHarvestContainer").style.display = "block";
         return;
@@ -1596,6 +1607,7 @@
                 不用等了，现在按下浇水键，植物瞬间成熟！
                 `;
 
+        window.currentHarvestActs = [{ timeStr: formatClockTime(now), ts: now.getTime() }];
         window.currentHarvestData = "<strong style='color: var(--danger);'>🔥 现在立刻浇水秒熟！</strong>";
       } else {
         const now = new Date();
@@ -1611,7 +1623,9 @@
                 在此时间点，浇水按键将刚好亮起，按下瞬间成熟！
                 `;
         panel.innerHTML += `<button class="alarm-btn" style="margin-top: 10px;" onclick="createAlarm('农场秒熟收割', ${alarmTime.getTime()})">⏰ 为本次操作设日历</button>`;
-        // 👇 替换这里：时间部分标红加粗
+        
+        // 👇 新增这一段：未来闹钟时间戳
+        window.currentHarvestActs = [{ timeStr: formatClockTime(alarmTime), ts: alarmTime.getTime() }];
         window.currentHarvestData = `等 ${formatDuration(waitMins)} <strong style="color: var(--danger);">(${dayPrefix}${formatClockTime(alarmTime)})</strong> 浇水秒熟`;
       }
       document.getElementById("saveHarvestContainer").style.display = "block";
@@ -2341,14 +2355,18 @@
     // 1. 初始化数据
     window.accounts = JSON.parse(localStorage.getItem('farm_accounts') || '[]');
 
-    // 2. 核心：判断时间危险区 (修复“过期后变绿”的漏洞)
+
+    // 2. 核心：判断时间危险区 (修复 32小时跨日超长判断漏洞)
     function isTimeDanger(targetTime, targetTs) {
       if (!targetTime) return false;
       const now = new Date();
-      // 强制转换为数字类型，防止 Android WebView 本地存储解析异常
+      // 如果有精准时间戳，绝不盲猜，直接计算绝对分钟差
       if (targetTs !== null && targetTs !== undefined) {
-        return (Number(targetTs) - now.getTime()) / 60000 <= 30;
+        const diffMins = (Number(targetTs) - now.getTime()) / 60000;
+        return diffMins >= -480 && diffMins <= 30; // 过去8小时 到 未来30分钟内飙红
       }
+      
+      // 只有手动改时间（没有时间戳）时，才采用 12 小时制盲猜防呆逻辑
       const [h, m] = targetTime.split(':').map(Number);
       let diff = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
       if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
@@ -2571,35 +2589,38 @@
     // 5. 同步功能：极限计算器 -> 管家 (完美解决 32小时 4个时间的问题，无弹窗)
     function syncCalcToAccount() {
       const accId = document.getElementById('calcSyncSelect').value;
-      if (!accId || !window.currentHarvestData) return; // 取消了 alert 弹窗
+      if (!accId || !window.currentHarvestActs) return;
 
       const acc = window.accounts.find(a => a.id == accId);
+      const acts = window.currentHarvestActs; // 读取底层挂载的精准时间集
 
-      // 提取字符串里【所有】的 HH:mm 时间（哪怕有4个也能全部抓出来）
-      const times = window.currentHarvestData.match(/(\d{2}:\d{2})/g);
+      if (acts && acts.length > 0) {
+        // 倒数第一个永远是收获
+        const hAct = acts[acts.length - 1];
+        acc.harvest = hAct.timeStr;
+        acc.harvest_ts = hAct.ts;
 
-      if (times && times.length > 0) {
-        // 无论有几个时间，倒序赋值：最后一个永远是收获，倒数第二个水2，倒数第三个水1
-        acc.harvest = times[times.length - 1] || '';
-        acc.water2 = times.length >= 2 ? times[times.length - 2] : '';
-        acc.water1 = times.length >= 3 ? times[times.length - 3] : '';
-
-        // 提取是否包含“明天”，用于跨日判定
-        if (acc.harvest) {
-          const [h, m] = acc.harvest.split(':');
-          const target = new Date();
-          target.setHours(parseInt(h), parseInt(m), 0, 0);
-          if (window.currentHarvestData.includes("明天")) target.setDate(target.getDate() + 1);
-          acc.harvest_ts = target.getTime();
+        // 倒数第二个是水2（如果有）
+        if (acts.length >= 2) {
+          const w2Act = acts[acts.length - 2];
+          acc.water2 = w2Act.timeStr;
+          acc.water2_ts = w2Act.ts;
+        } else {
+          acc.water2 = ''; acc.water2_ts = null;
         }
-        acc.water1_ts = null;
-        acc.water2_ts = null;
+
+        // 倒数第三个是水1（如果有）
+        if (acts.length >= 3) {
+          const w1Act = acts[acts.length - 3];
+          acc.water1 = w1Act.timeStr;
+          acc.water1_ts = w1Act.ts;
+        } else {
+          acc.water1 = ''; acc.water1_ts = null;
+        }
 
         saveAccs();
         renderAccountManager();
-
-        // 同步完成后自动清空下拉框
-        document.getElementById('calcSyncSelect').value = "";
+        document.getElementById('calcSyncSelect').value = ""; // 同步完成后自动清空下拉框
       }
     }
 
