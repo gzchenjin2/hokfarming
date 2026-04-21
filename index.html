@@ -180,6 +180,8 @@
       color: white;
     }
 
+
+
     /* 同步、保存、Now 等主要操作按钮 */
     .sync-btn,
     .now-btn {
@@ -197,13 +199,21 @@
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
-      transition: all 0.2s;
+
+      /* 🌟 优化 1：防止文字被意外选中。网页版快速连点时，很容易变成“选中文字”的蓝色底色，加上这个彻底避免 */
+      user-select: none;
+      -webkit-user-select: none;
+
+      /* 🌟 优化 2：把 0.2s 改成 0.05s ease-out。0.2s 显得肉肉的，0.05s 会带来极其干脆的“机械键盘”回弹感 */
+      transition: all 0.05s ease-out;
     }
 
+    /* 鼠标/手指按下的反馈状态 */
     .sync-btn:active,
     .now-btn:active {
-      transform: scale(0.95);
-      opacity: 0.9;
+      /* 🌟 优化 3：把 0.95 改为 0.92。因为过渡时间变短了，缩放幅度稍微加大一点，视觉上的“敲击感”会更强 */
+      transform: scale(0.92);
+      opacity: 0.85;
     }
 
     /* 温柔的日历小按钮 */
@@ -770,6 +780,7 @@
               <button type="button" class="time-btn" onclick="setCalcDurationWeb(8, this)">8 小时</button>
               <button type="button" class="time-btn" onclick="setCalcDurationWeb(16, this)">16 小时</button>
               <button type="button" class="time-btn" onclick="setCalcDurationWeb(32, this)">32 小时</button>
+              <button class="sync-btn" onclick="resetCalcFields()">重置</button>
             </div>
             <div class="input-row">
               <input type="number" id="t_h" placeholder="时" value="0" min="0"
@@ -1564,11 +1575,11 @@
 
         panel.className = "alert-warning";
         panel.innerHTML = html;
-        
+
         // 👇 新增这一段：将推演的绝对时间戳挂载到全局
         window.currentHarvestActs = actions.map(act => {
-           const actTime = new Date(now.getTime() + act.offset * 60000);
-           return { timeStr: formatClockTime(actTime), ts: actTime.getTime() };
+          const actTime = new Date(now.getTime() + act.offset * 60000);
+          return { timeStr: formatClockTime(actTime), ts: actTime.getTime() };
         });
 
         window.currentHarvestData = actions.map(a => {
@@ -1602,7 +1613,7 @@
         // 👇 新增这一段：自然成熟时间戳
         const targetTime = new Date(now.getTime() + R * 60000);
         window.currentHarvestActs = [{ timeStr: formatClockTime(targetTime), ts: targetTime.getTime() }];
-        
+
         window.currentHarvestData = "<strong style='color: var(--warning);'>⚠️ 卡门槛，建议自然成熟</strong>";
         document.getElementById("saveHarvestContainer").style.display = "block";
         return;
@@ -1631,7 +1642,7 @@
                 在此时间点，浇水按键将刚好亮起，按下瞬间成熟！
                 `;
         panel.innerHTML += `<button class="alarm-btn" style="margin-top: 10px;" onclick="createAlarm('农场秒熟收割', ${alarmTime.getTime()})">⏰ 为本次操作设日历</button>`;
-        
+
         // 👇 新增这一段：未来闹钟时间戳
         window.currentHarvestActs = [{ timeStr: formatClockTime(alarmTime), ts: alarmTime.getTime() }];
         window.currentHarvestData = `等 ${formatDuration(waitMins)} <strong style="color: var(--danger);">(${dayPrefix}${formatClockTime(alarmTime)})</strong> 浇水秒熟`;
@@ -2378,7 +2389,7 @@
         const diffMins = (Number(targetTs) - now.getTime()) / 60000;
         return diffMins >= -480 && diffMins <= 30; // 过去8小时 到 未来30分钟内飙红
       }
-      
+
       // 只有手动改时间（没有时间戳）时，才采用 12 小时制盲猜防呆逻辑
       const [h, m] = targetTime.split(':').map(Number);
       let diff = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
@@ -2971,6 +2982,51 @@
         }
       });
     }
+
+    function resetCalcFields() {
+      // 1. 清空所有真实的输入框 (总时间、剩余种植、剩余水量)
+      const inputIds = ['t_h', 'r_h', 'r_m', 'w_h', 'w_m'];
+      inputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.value = ''; // 清空数值，让它显示 placeholder
+        }
+      });
+
+      // 2. 清除顶部那几个 (1小时/8小时/16小时...) 按钮的高亮激活状态
+      // 因为你在 HTML 里写了 clearCalcActiveBtn()，这里直接调用即可
+      if (typeof clearCalcActiveBtn === 'function') {
+        clearCalcActiveBtn();
+      } else {
+        // 容错处理：如果你没定义那个函数，手动去掉高亮
+        const timeBtns = document.querySelectorAll('#calcBtnGroup .time-btn');
+        timeBtns.forEach(btn => btn.classList.remove('active'));
+      }
+
+      // 3. 清空并隐藏结果面板
+      const resultPanel = document.getElementById('resultPanel');
+      if (resultPanel) {
+        resultPanel.innerHTML = '';
+        resultPanel.style.display = 'none'; // 如果你原本没有控制 display，可以去掉这行
+      }
+
+      // 4. 隐藏下方【保存记录】和【同步到账号】的容器
+      const syncContainer = document.getElementById('saveHarvestContainer');
+      if (syncContainer) {
+        syncContainer.style.display = 'none';
+      }
+
+      // 5. 物理按键的震动反馈 (支持安卓网页)
+      if (navigator.vibrate) {
+        navigator.vibrate(50); // 震动 50 毫秒，手感极佳
+      }
+    }
+
+
+
+
+
+
 
     // 1. 每隔 10 秒静默扫描一次当前界面的时间
     setInterval(heartbeatDangerCheck, 10000);
